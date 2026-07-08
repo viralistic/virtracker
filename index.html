@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtracker · SEO Monitor</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6; /* blue */
+    --series-2: #1baf7a; /* aqua */
+    --series-3: #eda100; /* yellow */
+    --series-4: #008300; /* green */
+    --series-5: #4a3aa7; /* violet */
+    --series-other: #b3b1a9;
+    --seq-250: #86b6ef;
+    --seq-400: #3987e5;
+    --seq-550: #1c5cab;
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #d03b3b;
+    --delta-good: #006300;
+    --delta-bad: #d03b3b;
+    --pill-active-bg: #0b0b0b;
+    --pill-active-ink: #fcfcfb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+      --series-2: #199e70;
+      --series-3: #c98500;
+      --series-4: #008300;
+      --series-5: #9085e9;
+      --series-other: #55544f;
+      --seq-250: #184f95;
+      --seq-400: #2a78d6;
+      --seq-550: #86b6ef;
+      --delta-good: #0ca30c;
+      --pill-active-bg: #ffffff;
+      --pill-active-ink: #0d0d0d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 64px; }
+  header h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  header .sub { color: var(--text-secondary); margin-top: 4px; }
+  header .sub a { color: inherit; }
+  .filters {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    margin: 20px 0 16px;
+  }
+  .pillgroup { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pillgroup .glabel { color: var(--text-muted); font-size: 12px; margin-right: 2px; }
+  button.pill {
+    font: inherit; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-1);
+    color: var(--text-secondary); border-radius: 100px; padding: 4px 12px;
+  }
+  button.pill:hover { border-color: var(--baseline); color: var(--text-primary); }
+  button.pill[aria-pressed="true"] {
+    background: var(--pill-active-bg); color: var(--pill-active-ink); border-color: var(--pill-active-bg);
+    font-weight: 600;
+  }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .tile .label { color: var(--text-secondary); font-size: 13px; }
+  .tile .value { font-size: 30px; font-weight: 650; margin-top: 2px; letter-spacing: -0.01em; }
+  .tile .delta { font-size: 12.5px; margin-top: 2px; color: var(--text-muted); }
+  .tile .delta .up-bad, .tile .delta .down-bad { color: var(--delta-bad); font-weight: 600; }
+  .tile .delta .up-good, .tile .delta .down-good { color: var(--delta-good); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; margin-bottom: 12px; position: relative;
+  }
+  .card h2 { font-size: 15px; font-weight: 650; margin: 0; }
+  .card .desc { color: var(--text-muted); font-size: 12.5px; margin: 2px 0 10px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 8px; }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  svg text { font-family: inherit; }
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 5; display: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.14); padding: 8px 10px; font-size: 12.5px;
+    min-width: 150px;
+  }
+  .tooltip .tdate { color: var(--text-muted); margin-bottom: 4px; }
+  .tooltip .trow { display: flex; align-items: center; gap: 7px; margin-top: 2px; }
+  .tooltip .trow .lk { width: 10px; height: 3px; border-radius: 2px; flex: none; }
+  .tooltip .trow .val { font-weight: 650; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .tooltip .trow .nm { color: var(--text-secondary); }
+  details.dtable { margin-top: 10px; }
+  details.dtable summary { color: var(--text-muted); font-size: 12px; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td a { color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--baseline); }
+  td a:hover { border-bottom-color: var(--text-primary); }
+  .pagecell .site { color: var(--text-muted); font-size: 11.5px; display: block; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600;
+    border-radius: 100px; padding: 1px 9px; border: 1px solid var(--border); color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .posbadge { font-variant-numeric: tabular-nums; font-weight: 650; }
+  .trend-good { color: var(--delta-good); font-weight: 600; white-space: nowrap; }
+  .trend-bad { color: var(--delta-bad); font-weight: 600; white-space: nowrap; }
+  .trend-flat { color: var(--text-muted); white-space: nowrap; }
+  .empty { color: var(--text-muted); padding: 12px 4px; font-size: 13px; }
+  footer { color: var(--text-muted); font-size: 12.5px; margin-top: 24px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Virtracker · SEO Monitor</h1>
+    <div class="sub" id="subtitle"></div>
+  </header>
+
+  <div class="filters" id="filters"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card" id="card-trend">
+    <h2>Flags per day</h2>
+    <div class="desc">Total pages flagged by the daily detector, per scan day</div>
+    <div id="chart-trend"></div>
+    <details class="dtable"><summary>Data table</summary><div id="table-trend"></div></details>
+  </div>
+
+  <div class="card" id="card-types">
+    <h2>What kind of flags?</h2>
+    <div class="desc">Daily flags broken down by flag type</div>
+    <div class="legend" id="legend-types"></div>
+    <div id="chart-types"></div>
+    <details class="dtable"><summary>Data table</summary><div id="table-types"></div></details>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Striking-distance opportunities</h2>
+      <div class="desc" id="desc-opps"></div>
+      <div id="table-opps"></div>
+    </div>
+    <div class="card">
+      <h2>Flags by site</h2>
+      <div class="desc">Total flags in the selected period</div>
+      <div id="chart-sites"></div>
+      <details class="dtable"><summary>Data table</summary><div id="table-sites"></div></details>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Needs attention</h2>
+      <div class="desc" id="desc-attention"></div>
+      <div id="table-attention"></div>
+    </div>
+    <div class="card">
+      <h2>Recent wins</h2>
+      <div class="desc" id="desc-wins"></div>
+      <div id="table-wins"></div>
+    </div>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script id="seo-data" type="application/json">{"generatedAt":"2026-07-08","sheetUrl":"https://docs.google.com/spreadsheets/d/1lTLFb-eC4ElEpzX684X-XQvJTNBPR7Jv0D1WGKnqH7E/edit?gid=380445228","dates":["2026-05-18","2026-05-19","2026-05-20","2026-05-21","2026-05-22","2026-05-23","2026-05-24","2026-05-25","2026-05-26","2026-05-27","2026-05-28","2026-05-29","2026-05-30","2026-05-31","2026-06-01","2026-06-02","2026-06-03","2026-06-04","2026-06-05","2026-06-06","2026-06-07","2026-06-08","2026-06-09","2026-06-10","2026-06-11","2026-06-12","2026-06-13","2026-06-14","2026-06-15","2026-06-16","2026-06-17","2026-06-18","2026-06-19","2026-06-20","2026-06-21","2026-06-22","2026-06-23","2026-06-24","2026-06-25","2026-06-26","2026-06-27","2026-06-28","2026-06-29","2026-06-30","2026-07-01","2026-07-02","2026-07-03","2026-07-04","2026-07-05","2026-07-06","2026-07-07","2026-07-08"],"sites":["silverdrive.nl","transmissies.nl","viralistic.nl","vianenkvs.com","potae.nl","shoopshoop.nl"],"types":["new_no_clicks","position_decay","striking_distance","zombie_impressions_no_clicks","new_performing","impression_drop","click_drop","click_surge","dropped_out"],"daily":[{"date":"2026-05-18","scanned":359,"flagged":171},{"date":"2026-05-19","scanned":209,"flagged":110},{"date":"2026-05-20","scanned":206,"flagged":107},{"date":"2026-05-21","scanned":204,"flagged":116},{"date":"2026-05-22","scanned":207,"flagged":123},{"date":"2026-05-23","scanned":204,"flagged":76},{"date":"2026-05-24","scanned":209,"flagged":78},{"date":"2026-05-25","scanned":210,"flagged":83},{"date":"2026-05-26","scanned":212,"flagged":84},{"date":"2026-05-27","scanned":214,"flagged":83},{"date":"2026-05-28","scanned":215,"flagged":84},{"date":"2026-05-29","scanned":212,"flagged":82},{"date":"2026-05-30","scanned":208,"flagged":89},{"date":"2026-05-31","scanned":208,"flagged":86},{"date":"2026-06-01","scanned":208,"flagged":77},{"date":"2026-06-02","scanned":205,"flagged":69},{"date":"2026-06-03","scanned":205,"flagged":71},{"date":"2026-06-04","scanned":206,"flagged":72},{"date":"2026-06-05","scanned":208,"flagged":69},{"date":"2026-06-06","scanned":201,"flagged":66},{"date":"2026-06-07","scanned":203,"flagged":76},{"date":"2026-06-08","scanned":210,"flagged":98},{"date":"2026-06-09","scanned":214,"flagged":104},{"date":"2026-06-10","scanned":223,"flagged":120},{"date":"2026-06-11","scanned":226,"flagged":118},{"date":"2026-06-12","scanned":244,"flagged":124},{"date":"2026-06-13","scanned":256,"flagged":133},{"date":"2026-06-14","scanned":260,"flagged":134},{"date":"2026-06-15","scanned":259,"flagged":126},{"date":"2026-06-16","scanned":259,"flagged":131},{"date":"2026-06-17","scanned":263,"flagged":120},{"date":"2026-06-18","scanned":341,"flagged":142},{"date":"2026-06-19","scanned":350,"flagged":134},{"date":"2026-06-20","scanned":483,"flagged":262},{"date":"2026-06-21","scanned":496,"flagged":277},{"date":"2026-06-22","scanned":513,"flagged":300},{"date":"2026-06-23","scanned":528,"flagged":298},{"date":"2026-06-24","scanned":518,"flagged":300},{"date":"2026-06-25","scanned":522,"flagged":297},{"date":"2026-06-26","scanned":537,"flagged":300},{"date":"2026-06-27","scanned":551,"flagged":220},{"date":"2026-06-28","scanned":592,"flagged":265},{"date":"2026-06-29","scanned":610,"flagged":243},{"date":"2026-06-30","scanned":632,"flagged":255},{"date":"2026-07-01","scanned":641,"flagged":272},{"date":"2026-07-02","scanned":642,"flagged":281},{"date":"2026-07-03","scanned":642,"flagged":287},{"date":"2026-07-04","scanned":641,"flagged":286},{"date":"2026-07-05","scanned":647,"flagged":256},{"date":"2026-07-06","scanned":645,"flagged":252},{"date":"2026-07-07","scanned":651,"flagged":233},{"date":"2026-07-08","scanned":661,"flagged":233}],"counts":[{"date":"2026-05-18","site":"silverdrive.nl","byType":{"position_decay":35,"zombie_impressions_no_clicks":16,"striking_distance":13,"new_no_clicks":14}},{"date":"2026-05-18","site":"viralistic.nl","byType":{"striking_distance":3,"position_decay":36,"new_no_clicks":30,"zombie_impressions_no_clicks":6}},{"date":"2026-05-18","site":"vianenkvs.com","byType":{"striking_distance":4,"position_decay":1,"new_performing":1,"new_no_clicks":2}},{"date":"2026-05-18","site":"shoopshoop.nl","byType":{"striking_distance":5,"new_no_clicks":5}},{"date":"2026-05-19","site":"silverdrive.nl","byType":{"position_decay":32,"zombie_impressions_no_clicks":17,"striking_distance":12,"new_no_clicks":14}},{"date":"2026-05-19","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":11,"position_decay":10,"zombie_impressions_no_clicks":2}},{"date":"2026-05-19","site":"vianenkvs.com","byType":{"striking_distance":3,"new_no_clicks":3,"new_performing":2,"position_decay":1}},{"date":"2026-05-19","site":"shoopshoop.nl","byType":{"striking_distance":1,"new_no_clicks":1}},{"date":"2026-05-20","site":"silverdrive.nl","byType":{"position_decay":33,"zombie_impressions_no_clicks":18,"click_surge":1,"striking_distance":10,"new_no_clicks":11}},{"date":"2026-05-20","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":11,"position_decay":9,"zombie_impressions_no_clicks":2}},{"date":"2026-05-20","site":"vianenkvs.com","byType":{"striking_distance":2,"new_no_clicks":2,"new_performing":3,"click_drop":1,"position_decay":1}},{"date":"2026-05-20","site":"shoopshoop.nl","byType":{"striking_distance":1,"new_no_clicks":1}},{"date":"2026-05-21","site":"silverdrive.nl","byType":{"position_decay":39,"zombie_impressions_no_clicks":16,"striking_distance":12,"impression_drop":1,"new_no_clicks":11}},{"date":"2026-05-21","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":17,"position_decay":6,"zombie_impressions_no_clicks":2}},{"date":"2026-05-21","site":"vianenkvs.com","byType":{"striking_distance":2,"new_no_clicks":1,"new_performing":3,"click_drop":1,"position_decay":2}},{"date":"2026-05-21","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":1,"new_no_clicks":1}},{"date":"2026-05-22","site":"silverdrive.nl","byType":{"position_decay":42,"zombie_impressions_no_clicks":17,"striking_distance":9,"impression_drop":2,"new_no_clicks":14}},{"date":"2026-05-22","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":18,"position_decay":8,"zombie_impressions_no_clicks":1}},{"date":"2026-05-22","site":"vianenkvs.com","byType":{"striking_distance":4,"new_no_clicks":1,"new_performing":3,"click_drop":1}},{"date":"2026-05-22","site":"shoopshoop.nl","byType":{"striking_distance":1,"zombie_impressions_no_clicks":1}},{"date":"2026-05-23","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":14,"position_decay":15,"striking_distance":8,"impression_drop":2,"new_no_clicks":9,"click_drop":1}},{"date":"2026-05-23","site":"viralistic.nl","byType":{"striking_distance":1,"position_decay":3,"new_no_clicks":10,"zombie_impressions_no_clicks":1}},{"date":"2026-05-23","site":"vianenkvs.com","byType":{"striking_distance":5,"new_performing":2,"position_decay":1,"new_no_clicks":1}},{"date":"2026-05-23","site":"shoopshoop.nl","byType":{"striking_distance":1,"position_decay":1,"zombie_impressions_no_clicks":1}},{"date":"2026-05-24","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":10,"position_decay":18,"striking_distance":10,"impression_drop":3,"new_no_clicks":8,"new_performing":1}},{"date":"2026-05-24","site":"viralistic.nl","byType":{"click_drop":1,"position_decay":4,"new_no_clicks":9,"new_performing":1,"zombie_impressions_no_clicks":1}},{"date":"2026-05-24","site":"vianenkvs.com","byType":{"new_performing":1,"position_decay":3,"new_no_clicks":2,"striking_distance":3}},{"date":"2026-05-24","site":"shoopshoop.nl","byType":{"position_decay":2,"zombie_impressions_no_clicks":1}},{"date":"2026-05-25","site":"silverdrive.nl","byType":{"position_decay":21,"zombie_impressions_no_clicks":11,"striking_distance":9,"impression_drop":4,"new_no_clicks":10,"new_performing":1}},{"date":"2026-05-25","site":"viralistic.nl","byType":{"click_drop":1,"new_no_clicks":8,"new_performing":1,"position_decay":4,"zombie_impressions_no_clicks":1}},{"date":"2026-05-25","site":"vianenkvs.com","byType":{"new_performing":1,"position_decay":2,"striking_distance":3,"new_no_clicks":2}},{"date":"2026-05-25","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":2}},{"date":"2026-05-26","site":"silverdrive.nl","byType":{"position_decay":22,"zombie_impressions_no_clicks":10,"striking_distance":9,"impression_drop":5,"new_no_clicks":10}},{"date":"2026-05-26","site":"viralistic.nl","byType":{"click_drop":1,"position_decay":9,"new_no_clicks":3,"new_performing":1,"zombie_impressions_no_clicks":1}},{"date":"2026-05-26","site":"vianenkvs.com","byType":{"striking_distance":5,"position_decay":1,"new_no_clicks":2}},{"date":"2026-05-26","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":2,"new_no_clicks":1}},{"date":"2026-05-27","site":"silverdrive.nl","byType":{"position_decay":20,"zombie_impressions_no_clicks":8,"click_drop":1,"striking_distance":9,"impression_drop":5,"new_no_clicks":11}},{"date":"2026-05-27","site":"viralistic.nl","byType":{"click_drop":1,"position_decay":8,"new_no_clicks":4,"new_performing":1,"zombie_impressions_no_clicks":1}},{"date":"2026-05-27","site":"vianenkvs.com","byType":{"striking_distance":4,"position_decay":2,"click_surge":1,"new_no_clicks":2}},{"date":"2026-05-27","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":2,"new_no_clicks":1}},{"date":"2026-05-28","site":"silverdrive.nl","byType":{"position_decay":19,"zombie_impressions_no_clicks":11,"striking_distance":8,"impression_drop":5,"new_no_clicks":10,"new_performing":1}},{"date":"2026-05-28","site":"viralistic.nl","byType":{"click_drop":1,"position_decay":9,"new_no_clicks":4,"zombie_impressions_no_clicks":2,"new_performing":1}},{"date":"2026-05-28","site":"vianenkvs.com","byType":{"striking_distance":4,"click_surge":1,"position_decay":1,"new_no_clicks":2}},{"date":"2026-05-28","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":2,"new_no_clicks":1}},{"date":"2026-05-29","site":"silverdrive.nl","byType":{"position_decay":23,"zombie_impressions_no_clicks":8,"striking_distance":10,"impression_drop":5,"new_no_clicks":7,"new_performing":1}},{"date":"2026-05-29","site":"viralistic.nl","byType":{"striking_distance":1,"position_decay":8,"new_no_clicks":3,"zombie_impressions_no_clicks":2,"new_performing":1}},{"date":"2026-05-29","site":"vianenkvs.com","byType":{"striking_distance":5,"click_surge":1,"new_no_clicks":3}},{"date":"2026-05-29","site":"shoopshoop.nl","byType":{"position_decay":2,"new_no_clicks":1,"zombie_impressions_no_clicks":1}},{"date":"2026-05-30","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":9,"striking_distance":10,"position_decay":26,"impression_drop":5,"new_no_clicks":8,"new_performing":1}},{"date":"2026-05-30","site":"viralistic.nl","byType":{"striking_distance":1,"position_decay":7,"new_no_clicks":7,"zombie_impressions_no_clicks":2,"new_performing":1}},{"date":"2026-05-30","site":"vianenkvs.com","byType":{"striking_distance":4,"new_no_clicks":2}},{"date":"2026-05-30","site":"shoopshoop.nl","byType":{"position_decay":3,"new_no_clicks":2,"zombie_impressions_no_clicks":1}},{"date":"2026-05-31","site":"silverdrive.nl","byType":{"click_drop":1,"zombie_impressions_no_clicks":8,"striking_distance":10,"position_decay":22,"impression_drop":5,"new_no_clicks":8,"new_performing":1}},{"date":"2026-05-31","site":"viralistic.nl","byType":{"striking_distance":1,"position_decay":9,"new_no_clicks":7,"zombie_impressions_no_clicks":2,"impression_drop":1}},{"date":"2026-05-31","site":"vianenkvs.com","byType":{"striking_distance":3,"zombie_impressions_no_clicks":1,"new_no_clicks":1}},{"date":"2026-05-31","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"new_no_clicks":3,"position_decay":1}},{"date":"2026-06-01","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":6,"impression_drop":8,"striking_distance":11,"position_decay":23,"new_no_clicks":4,"new_performing":1}},{"date":"2026-06-01","site":"viralistic.nl","byType":{"striking_distance":2,"position_decay":6,"new_no_clicks":4,"zombie_impressions_no_clicks":1,"impression_drop":1}},{"date":"2026-06-01","site":"vianenkvs.com","byType":{"striking_distance":4}},{"date":"2026-06-01","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"new_no_clicks":3,"position_decay":1}},{"date":"2026-06-02","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":9,"striking_distance":10,"new_no_clicks":5,"position_decay":19,"impression_drop":4,"new_performing":1}},{"date":"2026-06-02","site":"viralistic.nl","byType":{"striking_distance":2,"new_no_clicks":5,"position_decay":2,"zombie_impressions_no_clicks":1,"impression_drop":1}},{"date":"2026-06-02","site":"vianenkvs.com","byType":{"striking_distance":3,"click_drop":2}},{"date":"2026-06-02","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"new_no_clicks":2,"position_decay":1}},{"date":"2026-06-03","site":"silverdrive.nl","byType":{"position_decay":19,"zombie_impressions_no_clicks":9,"new_no_clicks":7,"striking_distance":8,"impression_drop":3}},{"date":"2026-06-03","site":"viralistic.nl","byType":{"striking_distance":2,"new_no_clicks":8,"position_decay":2,"zombie_impressions_no_clicks":1,"impression_drop":1}},{"date":"2026-06-03","site":"vianenkvs.com","byType":{"striking_distance":3,"impression_drop":1,"click_drop":2}},{"date":"2026-06-03","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"new_no_clicks":2,"position_decay":1}},{"date":"2026-06-04","site":"silverdrive.nl","byType":{"position_decay":18,"zombie_impressions_no_clicks":10,"new_no_clicks":7,"striking_distance":8,"impression_drop":4}},{"date":"2026-06-04","site":"viralistic.nl","byType":{"striking_distance":2,"new_no_clicks":8,"position_decay":2,"zombie_impressions_no_clicks":1,"impression_drop":2}},{"date":"2026-06-04","site":"vianenkvs.com","byType":{"impression_drop":1,"click_drop":2,"striking_distance":2}},{"date":"2026-06-04","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"new_no_clicks":2,"position_decay":1}},{"date":"2026-06-05","site":"silverdrive.nl","byType":{"position_decay":17,"zombie_impressions_no_clicks":11,"new_no_clicks":9,"striking_distance":5,"impression_drop":2}},{"date":"2026-06-05","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":10,"new_performing":1,"position_decay":2,"zombie_impressions_no_clicks":1,"impression_drop":1}},{"date":"2026-06-05","site":"vianenkvs.com","byType":{"impression_drop":1,"click_drop":2,"striking_distance":2}},{"date":"2026-06-05","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"new_no_clicks":2}},{"date":"2026-06-06","site":"silverdrive.nl","byType":{"position_decay":19,"zombie_impressions_no_clicks":10,"new_no_clicks":9,"striking_distance":5}},{"date":"2026-06-06","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":9,"new_performing":1,"position_decay":1,"zombie_impressions_no_clicks":1,"impression_drop":2}},{"date":"2026-06-06","site":"vianenkvs.com","byType":{"impression_drop":1,"click_drop":2,"striking_distance":1,"position_decay":1}},{"date":"2026-06-06","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":1}},{"date":"2026-06-07","site":"silverdrive.nl","byType":{"click_surge":1,"striking_distance":9,"position_decay":18,"zombie_impressions_no_clicks":9,"new_no_clicks":13}},{"date":"2026-06-07","site":"viralistic.nl","byType":{"striking_distance":2,"new_performing":3,"new_no_clicks":9,"position_decay":1,"zombie_impressions_no_clicks":1,"impression_drop":1}},{"date":"2026-06-07","site":"vianenkvs.com","byType":{"position_decay":2,"impression_drop":2,"click_surge":1,"striking_distance":1}},{"date":"2026-06-07","site":"shoopshoop.nl","byType":{"position_decay":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-08","site":"silverdrive.nl","byType":{"click_surge":1,"new_no_clicks":25,"striking_distance":15,"zombie_impressions_no_clicks":8,"impression_drop":1,"position_decay":15}},{"date":"2026-06-08","site":"viralistic.nl","byType":{"click_drop":1,"new_performing":4,"new_no_clicks":10,"striking_distance":2,"position_decay":1,"zombie_impressions_no_clicks":3}},{"date":"2026-06-08","site":"vianenkvs.com","byType":{"click_surge":2,"position_decay":2,"impression_drop":2,"new_no_clicks":2,"striking_distance":1}},{"date":"2026-06-08","site":"shoopshoop.nl","byType":{"position_decay":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-09","site":"silverdrive.nl","byType":{"click_surge":1,"new_no_clicks":24,"striking_distance":18,"zombie_impressions_no_clicks":10,"impression_drop":1,"position_decay":11,"new_performing":1}},{"date":"2026-06-09","site":"viralistic.nl","byType":{"click_drop":1,"new_performing":4,"new_no_clicks":9,"striking_distance":2,"position_decay":1,"zombie_impressions_no_clicks":3}},{"date":"2026-06-09","site":"vianenkvs.com","byType":{"click_surge":3,"position_decay":3,"impression_drop":2,"zombie_impressions_no_clicks":1,"new_no_clicks":4,"new_performing":1,"striking_distance":1}},{"date":"2026-06-09","site":"shoopshoop.nl","byType":{"position_decay":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-10","site":"silverdrive.nl","byType":{"click_surge":1,"new_no_clicks":27,"striking_distance":16,"zombie_impressions_no_clicks":10,"impression_drop":1,"position_decay":16,"click_drop":1,"new_performing":1}},{"date":"2026-06-10","site":"viralistic.nl","byType":{"click_drop":1,"new_performing":3,"new_no_clicks":12,"striking_distance":2,"position_decay":7,"zombie_impressions_no_clicks":3}},{"date":"2026-06-10","site":"vianenkvs.com","byType":{"click_surge":3,"position_decay":3,"impression_drop":1,"new_no_clicks":5,"zombie_impressions_no_clicks":1,"new_performing":1,"striking_distance":1}},{"date":"2026-06-10","site":"shoopshoop.nl","byType":{"striking_distance":1,"position_decay":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-11","site":"silverdrive.nl","byType":{"click_surge":1,"zombie_impressions_no_clicks":12,"new_no_clicks":25,"striking_distance":17,"position_decay":17,"impression_drop":1,"click_drop":1}},{"date":"2026-06-11","site":"viralistic.nl","byType":{"striking_distance":2,"new_performing":3,"new_no_clicks":12,"position_decay":9,"zombie_impressions_no_clicks":3}},{"date":"2026-06-11","site":"vianenkvs.com","byType":{"impression_drop":1,"new_no_clicks":5,"click_surge":2,"new_performing":2,"striking_distance":1}},{"date":"2026-06-11","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":2}},{"date":"2026-06-12","site":"silverdrive.nl","byType":{"click_surge":1,"zombie_impressions_no_clicks":10,"new_no_clicks":40,"striking_distance":15,"position_decay":19,"new_performing":1,"impression_drop":1,"click_drop":1}},{"date":"2026-06-12","site":"viralistic.nl","byType":{"click_drop":1,"position_decay":8,"new_no_clicks":9,"new_performing":2,"zombie_impressions_no_clicks":1,"striking_distance":1}},{"date":"2026-06-12","site":"vianenkvs.com","byType":{"impression_drop":1,"new_no_clicks":5,"position_decay":1,"click_surge":1,"new_performing":2}},{"date":"2026-06-12","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"position_decay":2}},{"date":"2026-06-13","site":"silverdrive.nl","byType":{"position_decay":23,"zombie_impressions_no_clicks":10,"new_no_clicks":46,"new_performing":2,"striking_distance":15,"impression_drop":2,"click_drop":1}},{"date":"2026-06-13","site":"viralistic.nl","byType":{"click_drop":1,"position_decay":8,"new_no_clicks":8,"new_performing":1,"zombie_impressions_no_clicks":2,"striking_distance":1}},{"date":"2026-06-13","site":"vianenkvs.com","byType":{"impression_drop":1,"new_performing":4,"click_surge":1,"new_no_clicks":3}},{"date":"2026-06-13","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":1,"position_decay":2,"impression_drop":1}},{"date":"2026-06-14","site":"silverdrive.nl","byType":{"position_decay":22,"zombie_impressions_no_clicks":10,"new_no_clicks":48,"new_performing":4,"striking_distance":12,"dropped_out":1,"click_drop":1,"impression_drop":1}},{"date":"2026-06-14","site":"viralistic.nl","byType":{"striking_distance":3,"position_decay":9,"new_no_clicks":8,"new_performing":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-14","site":"vianenkvs.com","byType":{"new_performing":4,"click_drop":1,"click_surge":1,"new_no_clicks":4}},{"date":"2026-06-14","site":"shoopshoop.nl","byType":{"position_decay":1,"impression_drop":1}},{"date":"2026-06-15","site":"silverdrive.nl","byType":{"position_decay":24,"zombie_impressions_no_clicks":7,"new_no_clicks":39,"new_performing":8,"striking_distance":14,"dropped_out":1,"impression_drop":3}},{"date":"2026-06-15","site":"viralistic.nl","byType":{"striking_distance":3,"position_decay":8,"new_no_clicks":8,"new_performing":1}},{"date":"2026-06-15","site":"vianenkvs.com","byType":{"new_performing":4,"click_drop":1,"click_surge":1,"new_no_clicks":2}},{"date":"2026-06-15","site":"shoopshoop.nl","byType":{"position_decay":1,"impression_drop":1}},{"date":"2026-06-16","site":"silverdrive.nl","byType":{"position_decay":28,"zombie_impressions_no_clicks":6,"new_no_clicks":38,"new_performing":11,"striking_distance":15,"dropped_out":1,"impression_drop":2}},{"date":"2026-06-16","site":"viralistic.nl","byType":{"striking_distance":3,"position_decay":7,"new_no_clicks":9}},{"date":"2026-06-16","site":"vianenkvs.com","byType":{"new_performing":2,"click_drop":1,"click_surge":1,"position_decay":3,"striking_distance":1,"new_no_clicks":1}},{"date":"2026-06-16","site":"shoopshoop.nl","byType":{"position_decay":1,"impression_drop":1}},{"date":"2026-06-17","site":"silverdrive.nl","byType":{"position_decay":24,"zombie_impressions_no_clicks":6,"new_no_clicks":37,"new_performing":13,"striking_distance":16,"dropped_out":2,"impression_drop":2}},{"date":"2026-06-17","site":"viralistic.nl","byType":{"striking_distance":4,"position_decay":4,"new_no_clicks":2}},{"date":"2026-06-17","site":"vianenkvs.com","byType":{"position_decay":4,"click_drop":1,"click_surge":1,"new_performing":1,"striking_distance":1,"new_no_clicks":1}},{"date":"2026-06-17","site":"shoopshoop.nl","byType":{"impression_drop":1}},{"date":"2026-06-18","site":"silverdrive.nl","byType":{"click_drop":1,"position_decay":25,"zombie_impressions_no_clicks":6,"new_no_clicks":36,"new_performing":13,"striking_distance":16,"dropped_out":3,"impression_drop":1}},{"date":"2026-06-18","site":"viralistic.nl","byType":{"striking_distance":4,"new_no_clicks":5,"position_decay":2}},{"date":"2026-06-18","site":"vianenkvs.com","byType":{"position_decay":6,"click_drop":1,"click_surge":1,"striking_distance":1,"new_no_clicks":1}},{"date":"2026-06-18","site":"potae.nl","byType":{"position_decay":5,"new_no_clicks":8,"striking_distance":5,"zombie_impressions_no_clicks":1}},{"date":"2026-06-18","site":"shoopshoop.nl","byType":{"impression_drop":1}},{"date":"2026-06-19","site":"silverdrive.nl","byType":{"position_decay":31,"zombie_impressions_no_clicks":7,"striking_distance":15,"click_drop":1,"new_no_clicks":28,"new_performing":7,"dropped_out":2}},{"date":"2026-06-19","site":"viralistic.nl","byType":{"striking_distance":4,"new_no_clicks":10,"new_performing":1,"position_decay":1}},{"date":"2026-06-19","site":"vianenkvs.com","byType":{"position_decay":4,"striking_distance":3,"new_no_clicks":3}},{"date":"2026-06-19","site":"potae.nl","byType":{"position_decay":4,"new_no_clicks":6,"striking_distance":6}},{"date":"2026-06-19","site":"shoopshoop.nl","byType":{"impression_drop":1}},{"date":"2026-06-20","site":"silverdrive.nl","byType":{"position_decay":31,"striking_distance":15,"click_drop":1,"new_no_clicks":22,"dropped_out":3,"zombie_impressions_no_clicks":8,"impression_drop":1,"new_performing":1}},{"date":"2026-06-20","site":"transmissies.nl","byType":{"new_performing":23,"new_no_clicks":106}},{"date":"2026-06-20","site":"viralistic.nl","byType":{"striking_distance":4,"new_no_clicks":16,"new_performing":1,"position_decay":3}},{"date":"2026-06-20","site":"vianenkvs.com","byType":{"position_decay":4,"striking_distance":2,"new_no_clicks":3}},{"date":"2026-06-20","site":"potae.nl","byType":{"position_decay":4,"new_no_clicks":7,"striking_distance":6}},{"date":"2026-06-20","site":"shoopshoop.nl","byType":{"impression_drop":1}},{"date":"2026-06-21","site":"silverdrive.nl","byType":{"position_decay":32,"zombie_impressions_no_clicks":7,"striking_distance":16,"click_drop":1,"new_no_clicks":22,"dropped_out":3,"impression_drop":1}},{"date":"2026-06-21","site":"transmissies.nl","byType":{"new_performing":35,"new_no_clicks":104}},{"date":"2026-06-21","site":"viralistic.nl","byType":{"striking_distance":3,"new_no_clicks":18,"new_performing":1,"position_decay":4,"zombie_impressions_no_clicks":1}},{"date":"2026-06-21","site":"vianenkvs.com","byType":{"position_decay":4,"striking_distance":1,"click_drop":1,"new_no_clicks":2}},{"date":"2026-06-21","site":"potae.nl","byType":{"position_decay":8,"striking_distance":6,"new_no_clicks":2,"click_surge":1,"click_drop":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-21","site":"shoopshoop.nl","byType":{"impression_drop":1}},{"date":"2026-06-22","site":"silverdrive.nl","byType":{"click_drop":1,"position_decay":39,"striking_distance":12,"new_no_clicks":29,"zombie_impressions_no_clicks":5,"dropped_out":2,"impression_drop":1}},{"date":"2026-06-22","site":"transmissies.nl","byType":{"new_performing":40,"new_no_clicks":109}},{"date":"2026-06-22","site":"viralistic.nl","byType":{"striking_distance":5,"new_no_clicks":21,"new_performing":2,"position_decay":3,"zombie_impressions_no_clicks":2}},{"date":"2026-06-22","site":"vianenkvs.com","byType":{"striking_distance":3,"position_decay":4,"new_no_clicks":2}},{"date":"2026-06-22","site":"potae.nl","byType":{"position_decay":8,"new_no_clicks":2,"click_surge":1,"striking_distance":5,"click_drop":2,"zombie_impressions_no_clicks":1}},{"date":"2026-06-22","site":"shoopshoop.nl","byType":{"impression_drop":1}},{"date":"2026-06-23","site":"silverdrive.nl","byType":{"position_decay":36,"zombie_impressions_no_clicks":6,"striking_distance":10,"new_no_clicks":27,"dropped_out":2,"impression_drop":2,"new_performing":1}},{"date":"2026-06-23","site":"transmissies.nl","byType":{"new_performing":44,"new_no_clicks":114}},{"date":"2026-06-23","site":"viralistic.nl","byType":{"striking_distance":4,"new_no_clicks":24,"new_performing":2,"position_decay":2,"zombie_impressions_no_clicks":2}},{"date":"2026-06-23","site":"vianenkvs.com","byType":{"striking_distance":3,"position_decay":2,"click_drop":1,"new_no_clicks":2}},{"date":"2026-06-23","site":"potae.nl","byType":{"position_decay":6,"new_no_clicks":3,"click_drop":1,"zombie_impressions_no_clicks":2}},{"date":"2026-06-23","site":"shoopshoop.nl","byType":{"striking_distance":1,"impression_drop":1}},{"date":"2026-06-24","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":6,"position_decay":36,"striking_distance":10,"new_no_clicks":25,"impression_drop":4,"dropped_out":1,"new_performing":1}},{"date":"2026-06-24","site":"transmissies.nl","byType":{"new_performing":49,"new_no_clicks":110}},{"date":"2026-06-24","site":"viralistic.nl","byType":{"striking_distance":5,"new_no_clicks":22,"new_performing":2,"position_decay":4,"zombie_impressions_no_clicks":2}},{"date":"2026-06-24","site":"vianenkvs.com","byType":{"striking_distance":2,"new_no_clicks":3,"zombie_impressions_no_clicks":1,"position_decay":1,"click_surge":1}},{"date":"2026-06-24","site":"potae.nl","byType":{"new_no_clicks":7,"position_decay":4,"click_drop":1,"zombie_impressions_no_clicks":2}},{"date":"2026-06-24","site":"shoopshoop.nl","byType":{"striking_distance":1}},{"date":"2026-06-25","site":"silverdrive.nl","byType":{"position_decay":31,"zombie_impressions_no_clicks":6,"striking_distance":11,"new_no_clicks":26,"impression_drop":3,"dropped_out":1}},{"date":"2026-06-25","site":"transmissies.nl","byType":{"new_performing":53,"new_no_clicks":110}},{"date":"2026-06-25","site":"viralistic.nl","byType":{"striking_distance":4,"new_no_clicks":21,"new_performing":2,"position_decay":4,"zombie_impressions_no_clicks":4}},{"date":"2026-06-25","site":"vianenkvs.com","byType":{"striking_distance":1,"zombie_impressions_no_clicks":1,"click_surge":1,"new_no_clicks":2}},{"date":"2026-06-25","site":"potae.nl","byType":{"new_no_clicks":5,"position_decay":4,"zombie_impressions_no_clicks":5,"click_drop":1}},{"date":"2026-06-25","site":"shoopshoop.nl","byType":{"striking_distance":1}},{"date":"2026-06-26","site":"silverdrive.nl","byType":{"position_decay":28,"zombie_impressions_no_clicks":8,"click_surge":1,"new_no_clicks":22,"impression_drop":3,"striking_distance":8,"dropped_out":1}},{"date":"2026-06-26","site":"transmissies.nl","byType":{"new_performing":58,"new_no_clicks":117}},{"date":"2026-06-26","site":"viralistic.nl","byType":{"striking_distance":3,"position_decay":4,"new_no_clicks":19,"new_performing":1,"zombie_impressions_no_clicks":3}},{"date":"2026-06-26","site":"vianenkvs.com","byType":{"striking_distance":3,"zombie_impressions_no_clicks":1,"position_decay":1}},{"date":"2026-06-26","site":"potae.nl","byType":{"new_no_clicks":6,"zombie_impressions_no_clicks":4,"position_decay":5,"click_drop":1}},{"date":"2026-06-26","site":"shoopshoop.nl","byType":{"striking_distance":1,"new_no_clicks":1,"zombie_impressions_no_clicks":1}},{"date":"2026-06-27","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":9,"position_decay":33,"striking_distance":9,"new_no_clicks":24,"impression_drop":1,"new_performing":1,"dropped_out":2}},{"date":"2026-06-27","site":"transmissies.nl","byType":{"striking_distance":3,"new_no_clicks":55,"position_decay":15,"click_surge":3,"zombie_impressions_no_clicks":1,"new_performing":6}},{"date":"2026-06-27","site":"viralistic.nl","byType":{"striking_distance":1,"position_decay":8,"new_no_clicks":15,"zombie_impressions_no_clicks":5,"new_performing":1,"impression_drop":1}},{"date":"2026-06-27","site":"vianenkvs.com","byType":{"striking_distance":3,"new_no_clicks":1,"zombie_impressions_no_clicks":1,"position_decay":1}},{"date":"2026-06-27","site":"potae.nl","byType":{"new_no_clicks":6,"position_decay":6,"click_drop":1,"impression_drop":1,"zombie_impressions_no_clicks":3}},{"date":"2026-06-27","site":"shoopshoop.nl","byType":{"striking_distance":1,"new_no_clicks":2,"position_decay":1}},{"date":"2026-06-28","site":"silverdrive.nl","byType":{"zombie_impressions_no_clicks":9,"position_decay":37,"click_drop":1,"striking_distance":8,"new_no_clicks":31,"impression_drop":2,"new_performing":1,"dropped_out":2}},{"date":"2026-06-28","site":"transmissies.nl","byType":{"striking_distance":3,"new_no_clicks":74,"position_decay":15,"new_performing":16,"click_surge":3,"zombie_impressions_no_clicks":2}},{"date":"2026-06-28","site":"viralistic.nl","byType":{"striking_distance":1,"new_no_clicks":19,"position_decay":7,"new_performing":1,"impression_drop":1,"zombie_impressions_no_clicks":4}},{"date":"2026-06-28","site":"vianenkvs.com","byType":{"striking_distance":4,"new_no_clicks":1,"zombie_impressions_no_clicks":1,"position_decay":1,"click_surge":1}},{"date":"2026-06-28","site":"potae.nl","byType":{"new_no_clicks":6,"position_decay":4,"impression_drop":1,"click_drop":1,"zombie_impressions_no_clicks":3}},{"date":"2026-06-28","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"striking_distance":1,"new_no_clicks":2}},{"date":"2026-06-29","site":"silverdrive.nl","byType":{"click_surge":1,"zombie_impressions_no_clicks":7,"position_decay":31,"click_drop":1,"striking_distance":9,"new_no_clicks":23,"impression_drop":2,"dropped_out":1}},{"date":"2026-06-29","site":"transmissies.nl","byType":{"striking_distance":4,"new_performing":26,"new_no_clicks":70,"position_decay":11,"click_surge":3,"zombie_impressions_no_clicks":2}},{"date":"2026-06-29","site":"viralistic.nl","byType":{"striking_distance":2,"new_no_clicks":17,"position_decay":7,"dropped_out":1,"impression_drop":1,"zombie_impressions_no_clicks":1}},{"date":"2026-06-29","site":"vianenkvs.com","byType":{"striking_distance":3,"new_no_clicks":1,"zombie_impressions_no_clicks":1,"position_decay":1}},{"date":"2026-06-29","site":"potae.nl","byType":{"new_no_clicks":5,"position_decay":3,"click_drop":1,"zombie_impressions_no_clicks":2}},{"date":"2026-06-29","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"striking_distance":1,"new_no_clicks":3}},{"date":"2026-06-30","site":"silverdrive.nl","byType":{"position_decay":33,"zombie_impressions_no_clicks":5,"click_drop":1,"striking_distance":10,"new_no_clicks":18,"dropped_out":1}},{"date":"2026-06-30","site":"transmissies.nl","byType":{"striking_distance":5,"new_performing":29,"new_no_clicks":71,"click_surge":2,"position_decay":13,"zombie_impressions_no_clicks":3}},{"date":"2026-06-30","site":"viralistic.nl","byType":{"striking_distance":2,"new_no_clicks":22,"position_decay":9,"dropped_out":1,"zombie_impressions_no_clicks":2}},{"date":"2026-06-30","site":"vianenkvs.com","byType":{"striking_distance":3,"new_no_clicks":2,"zombie_impressions_no_clicks":1,"position_decay":3}},{"date":"2026-06-30","site":"potae.nl","byType":{"new_no_clicks":2,"position_decay":5,"click_drop":1,"zombie_impressions_no_clicks":2}},{"date":"2026-06-30","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"striking_distance":1,"new_no_clicks":6}},{"date":"2026-07-01","site":"silverdrive.nl","byType":{"position_decay":36,"zombie_impressions_no_clicks":4,"click_drop":1,"striking_distance":10,"new_no_clicks":21,"impression_drop":1,"dropped_out":1}},{"date":"2026-07-01","site":"transmissies.nl","byType":{"striking_distance":4,"position_decay":11,"new_performing":29,"new_no_clicks":73,"click_surge":2,"zombie_impressions_no_clicks":5}},{"date":"2026-07-01","site":"viralistic.nl","byType":{"striking_distance":3,"new_no_clicks":22,"position_decay":9,"dropped_out":1,"impression_drop":1,"zombie_impressions_no_clicks":2}},{"date":"2026-07-01","site":"vianenkvs.com","byType":{"striking_distance":4,"new_no_clicks":2,"zombie_impressions_no_clicks":1,"position_decay":3,"click_drop":1}},{"date":"2026-07-01","site":"potae.nl","byType":{"new_no_clicks":5,"position_decay":7,"striking_distance":1,"click_drop":1,"zombie_impressions_no_clicks":1}},{"date":"2026-07-01","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"striking_distance":1,"new_no_clicks":7}},{"date":"2026-07-02","site":"silverdrive.nl","byType":{"position_decay":39,"new_no_clicks":29,"click_drop":1,"striking_distance":9,"new_performing":2,"impression_drop":1,"zombie_impressions_no_clicks":2}},{"date":"2026-07-02","site":"transmissies.nl","byType":{"striking_distance":4,"new_performing":29,"position_decay":14,"new_no_clicks":74,"click_surge":2,"zombie_impressions_no_clicks":5}},{"date":"2026-07-02","site":"viralistic.nl","byType":{"impression_drop":3,"new_no_clicks":21,"zombie_impressions_no_clicks":2,"position_decay":8,"dropped_out":1,"striking_distance":1}},{"date":"2026-07-02","site":"vianenkvs.com","byType":{"striking_distance":3,"position_decay":4,"new_no_clicks":2,"zombie_impressions_no_clicks":1,"click_drop":1}},{"date":"2026-07-02","site":"potae.nl","byType":{"new_no_clicks":4,"position_decay":5,"click_drop":1,"new_performing":1,"zombie_impressions_no_clicks":1}},{"date":"2026-07-02","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":2,"striking_distance":1,"new_no_clicks":8}},{"date":"2026-07-03","site":"silverdrive.nl","byType":{"position_decay":47,"new_no_clicks":27,"click_drop":1,"striking_distance":11,"new_performing":3,"impression_drop":1,"zombie_impressions_no_clicks":2,"dropped_out":1}},{"date":"2026-07-03","site":"transmissies.nl","byType":{"striking_distance":6,"new_performing":27,"position_decay":19,"new_no_clicks":68,"click_surge":2,"zombie_impressions_no_clicks":4}},{"date":"2026-07-03","site":"viralistic.nl","byType":{"impression_drop":3,"new_no_clicks":20,"zombie_impressions_no_clicks":3,"position_decay":8,"dropped_out":1,"striking_distance":1}},{"date":"2026-07-03","site":"vianenkvs.com","byType":{"striking_distance":4,"position_decay":3,"new_no_clicks":1,"new_performing":1}},{"date":"2026-07-03","site":"potae.nl","byType":{"new_no_clicks":4,"position_decay":5,"click_drop":1,"new_performing":1,"zombie_impressions_no_clicks":1}},{"date":"2026-07-03","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":3,"striking_distance":1,"new_no_clicks":6,"new_performing":1}},{"date":"2026-07-04","site":"silverdrive.nl","byType":{"position_decay":35,"new_no_clicks":27,"click_drop":1,"striking_distance":10,"impression_drop":2,"new_performing":4,"zombie_impressions_no_clicks":4}},{"date":"2026-07-04","site":"transmissies.nl","byType":{"striking_distance":7,"new_performing":18,"position_decay":26,"new_no_clicks":69,"click_surge":1,"zombie_impressions_no_clicks":3,"click_drop":1}},{"date":"2026-07-04","site":"viralistic.nl","byType":{"impression_drop":3,"new_no_clicks":20,"zombie_impressions_no_clicks":3,"position_decay":9,"dropped_out":1,"striking_distance":1}},{"date":"2026-07-04","site":"vianenkvs.com","byType":{"striking_distance":4,"position_decay":3,"new_performing":1,"new_no_clicks":7}},{"date":"2026-07-04","site":"potae.nl","byType":{"new_no_clicks":6,"position_decay":4,"click_drop":1,"new_performing":1,"zombie_impressions_no_clicks":1}},{"date":"2026-07-04","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":3,"striking_distance":1,"new_no_clicks":6,"position_decay":2,"new_performing":1}},{"date":"2026-07-05","site":"silverdrive.nl","byType":{"position_decay":25,"new_no_clicks":26,"striking_distance":7,"impression_drop":2,"new_performing":4,"zombie_impressions_no_clicks":7}},{"date":"2026-07-05","site":"transmissies.nl","byType":{"striking_distance":13,"position_decay":29,"new_no_clicks":55,"zombie_impressions_no_clicks":6,"click_surge":1,"new_performing":2,"click_drop":1}},{"date":"2026-07-05","site":"viralistic.nl","byType":{"impression_drop":4,"new_no_clicks":18,"position_decay":9,"zombie_impressions_no_clicks":3}},{"date":"2026-07-05","site":"vianenkvs.com","byType":{"striking_distance":6,"position_decay":3,"new_performing":1,"new_no_clicks":7}},{"date":"2026-07-05","site":"potae.nl","byType":{"position_decay":5,"click_drop":1,"new_no_clicks":6,"new_performing":1,"click_surge":1,"zombie_impressions_no_clicks":1}},{"date":"2026-07-05","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":3,"striking_distance":1,"new_no_clicks":6,"new_performing":1,"impression_drop":1}},{"date":"2026-07-06","site":"silverdrive.nl","byType":{"position_decay":25,"new_no_clicks":30,"click_drop":1,"impression_drop":2,"new_performing":3,"zombie_impressions_no_clicks":5,"striking_distance":6}},{"date":"2026-07-06","site":"transmissies.nl","byType":{"striking_distance":10,"position_decay":30,"new_no_clicks":42,"zombie_impressions_no_clicks":6,"click_surge":2,"new_performing":3}},{"date":"2026-07-06","site":"viralistic.nl","byType":{"striking_distance":3,"position_decay":9,"zombie_impressions_no_clicks":2,"new_no_clicks":20,"impression_drop":3}},{"date":"2026-07-06","site":"vianenkvs.com","byType":{"striking_distance":7,"position_decay":4,"new_performing":1,"new_no_clicks":7}},{"date":"2026-07-06","site":"potae.nl","byType":{"striking_distance":1,"position_decay":3,"new_no_clicks":9,"new_performing":1,"click_surge":3,"zombie_impressions_no_clicks":2}},{"date":"2026-07-06","site":"shoopshoop.nl","byType":{"zombie_impressions_no_clicks":3,"striking_distance":1,"new_no_clicks":7,"impression_drop":1}},{"date":"2026-07-07","site":"silverdrive.nl","byType":{"position_decay":23,"striking_distance":8,"new_performing":4,"new_no_clicks":41,"zombie_impressions_no_clicks":6,"dropped_out":1}},{"date":"2026-07-07","site":"transmissies.nl","byType":{"striking_distance":7,"click_surge":3,"position_decay":22,"new_performing":3,"new_no_clicks":28,"zombie_impressions_no_clicks":4,"impression_drop":3}},{"date":"2026-07-07","site":"viralistic.nl","byType":{"striking_distance":2,"impression_drop":3,"position_decay":8,"zombie_impressions_no_clicks":2,"new_no_clicks":13}},{"date":"2026-07-07","site":"vianenkvs.com","byType":{"striking_distance":6,"click_surge":1,"position_decay":4,"new_no_clicks":7}},{"date":"2026-07-07","site":"potae.nl","byType":{"click_surge":2,"new_performing":1,"position_decay":5,"new_no_clicks":12,"striking_distance":1,"zombie_impressions_no_clicks":2}},{"date":"2026-07-07","site":"shoopshoop.nl","byType":{"striking_distance":1,"zombie_impressions_no_clicks":3,"new_no_clicks":4,"position_decay":2,"impression_drop":1}},{"date":"2026-07-08","site":"silverdrive.nl","byType":{"striking_distance":7,"new_performing":2,"position_decay":25,"zombie_impressions_no_clicks":9,"new_no_clicks":37,"dropped_out":1}},{"date":"2026-07-08","site":"transmissies.nl","byType":{"striking_distance":6,"click_surge":3,"click_drop":1,"new_performing":3,"position_decay":14,"new_no_clicks":28,"zombie_impressions_no_clicks":5,"impression_drop":6,"dropped_out":2}},{"date":"2026-07-08","site":"viralistic.nl","byType":{"striking_distance":3,"impression_drop":3,"position_decay":7,"new_no_clicks":13,"zombie_impressions_no_clicks":1}},{"date":"2026-07-08","site":"vianenkvs.com","byType":{"striking_distance":9,"click_surge":1,"position_decay":2,"new_no_clicks":8}},{"date":"2026-07-08","site":"potae.nl","byType":{"click_surge":1,"striking_distance":1,"position_decay":6,"new_no_clicks":15,"zombie_impressions_no_clicks":2}},{"date":"2026-07-08","site":"shoopshoop.nl","byType":{"striking_distance":1,"zombie_impressions_no_clicks":4,"position_decay":3,"new_no_clicks":3,"impression_drop":1}}],"latestDate":"2026-07-08","latestFlags":[{"page":"https://shoopshoop.nl/","site":"shoopshoop.nl","flag":"striking_distance","clicks":2.0,"impressions":134.0,"ctr":0.0149,"position":15.2,"prevClicks":2.0,"prevPosition":16.4,"clickPct":0.0,"imprPct":0.072,"posDelta":-1.2,"severity":1,"isNew":false},{"page":"http://www.shoopshoop.nl/","site":"shoopshoop.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":322.0,"ctr":0.0,"position":5.6,"prevClicks":0.0,"prevPosition":5.8,"clickPct":0.0,"imprPct":0.146,"posDelta":-0.1,"severity":2,"isNew":false},{"page":"https://shoopshoop.nl/blog","site":"shoopshoop.nl","flag":"position_decay","clicks":0.0,"impressions":8.0,"ctr":0.0,"position":51.1,"prevClicks":0.0,"prevPosition":43.0,"clickPct":0.0,"imprPct":7.0,"posDelta":8.1,"severity":3,"isNew":false},{"page":"https://shoopshoop.nl/dienst/advertenties/","site":"shoopshoop.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":7.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://shoopshoop.nl/dienst/marketingstrategie/","site":"shoopshoop.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":159.0,"ctr":0.0,"position":59.6,"prevClicks":0.0,"prevPosition":58.9,"clickPct":0.0,"imprPct":6.227,"posDelta":0.8,"severity":2,"isNew":false},{"page":"https://shoopshoop.nl/dienst/storybrand-implementatie/","site":"shoopshoop.nl","flag":"position_decay","clicks":0.0,"impressions":54.0,"ctr":0.0,"position":29.4,"prevClicks":0.0,"prevPosition":24.1,"clickPct":0.0,"imprPct":0.459,"posDelta":5.3,"severity":3,"isNew":false},{"page":"https://shoopshoop.nl/dienst/web-design/","site":"shoopshoop.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":924.0,"ctr":0.0,"position":62.9,"prevClicks":0.0,"prevPosition":63.5,"clickPct":0.0,"imprPct":0.512,"posDelta":-0.6,"severity":2,"isNew":false},{"page":"https://shoopshoop.nl/kennismaken/","site":"shoopshoop.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":7.0,"prevClicks":0.0,"prevPosition":1.0,"clickPct":0.0,"imprPct":0.0,"posDelta":6.0,"severity":3,"isNew":false},{"page":"https://shoopshoop.nl/maatwerk-wordpress-website-laten-bouwen/","site":"shoopshoop.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":180.0,"ctr":0.0,"position":49.9,"prevClicks":0.0,"prevPosition":47.0,"clickPct":0.0,"imprPct":0.216,"posDelta":2.9,"severity":2,"isNew":false},{"page":"https://shoopshoop.nl/projecten/","site":"shoopshoop.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://shoopshoop.nl/seo-uitbesteden/","site":"shoopshoop.nl","flag":"impression_drop","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":43.8,"prevClicks":0.0,"prevPosition":60.6,"clickPct":0.0,"imprPct":-0.985,"posDelta":-16.8,"severity":3,"isNew":false},{"page":"https://shoopshoop.nl/silverdrive-marketingpartner/","site":"shoopshoop.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":8.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/best-chauffeur-service-europe/","site":"silverdrive.nl","flag":"striking_distance","clicks":13.0,"impressions":1957.0,"ctr":0.0066,"position":10.5,"prevClicks":21.0,"prevPosition":9.4,"clickPct":-0.381,"imprPct":-0.165,"posDelta":1.1,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/luxury-transfers-zandvoort-formula-1/","site":"silverdrive.nl","flag":"striking_distance","clicks":6.0,"impressions":124.0,"ctr":0.0484,"position":10.8,"prevClicks":2.0,"prevPosition":13.1,"clickPct":2.0,"imprPct":0.393,"posDelta":-2.3,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/city/luxury-travel-in-antwerp/","site":"silverdrive.nl","flag":"striking_distance","clicks":4.0,"impressions":53.0,"ctr":0.0755,"position":9.3,"prevClicks":3.0,"prevPosition":6.2,"clickPct":0.333,"imprPct":0.293,"posDelta":3.0,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/fleet/mercedes-maybach/","site":"silverdrive.nl","flag":"striking_distance","clicks":4.0,"impressions":542.0,"ctr":0.0074,"position":14.7,"prevClicks":2.0,"prevPosition":16.0,"clickPct":1.0,"imprPct":-0.064,"posDelta":-1.3,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/city/luxurious-journeys-in-cologne/","site":"silverdrive.nl","flag":"new_performing","clicks":2.0,"impressions":2.0,"ctr":1.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":1.0,"imprPct":1.0,"posDelta":0.0,"severity":1,"isNew":true},{"page":"https://silverdrive.nl/fleet/mercedes-v-class/","site":"silverdrive.nl","flag":"position_decay","clicks":2.0,"impressions":70.0,"ctr":0.0286,"position":18.4,"prevClicks":5.0,"prevPosition":8.3,"clickPct":-0.6,"imprPct":-0.167,"posDelta":10.1,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/taxis-amsterdam-guide/","site":"silverdrive.nl","flag":"striking_distance","clicks":2.0,"impressions":1207.0,"ctr":0.0017,"position":8.1,"prevClicks":4.0,"prevPosition":8.9,"clickPct":-0.5,"imprPct":0.02,"posDelta":-0.8,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/city/elegant-transport-in-namur/","site":"silverdrive.nl","flag":"position_decay","clicks":1.0,"impressions":6.0,"ctr":0.1667,"position":19.8,"prevClicks":0.0,"prevPosition":11.3,"clickPct":1.0,"imprPct":1.0,"posDelta":8.5,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/fleet/mercedes-benz-s-class/","site":"silverdrive.nl","flag":"striking_distance","clicks":1.0,"impressions":173.0,"ctr":0.0058,"position":17.8,"prevClicks":0.0,"prevPosition":29.3,"clickPct":1.0,"imprPct":0.966,"posDelta":-11.5,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/trouwvervoer/","site":"silverdrive.nl","flag":"new_performing","clicks":1.0,"impressions":83.0,"ctr":0.012,"position":43.2,"prevClicks":0.0,"prevPosition":0.0,"clickPct":1.0,"imprPct":1.0,"posDelta":0.0,"severity":1,"isNew":true},{"page":"https://silverdrive.nl/3-reasons-to-pick-silverdrive-over-a-regular-taxi-service/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":125.0,"ctr":0.0,"position":61.8,"prevClicks":0.0,"prevPosition":61.1,"clickPct":0.0,"imprPct":0.008,"posDelta":0.7,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/about","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":1.0,"clickPct":0.0,"imprPct":0.0,"posDelta":8.0,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/airport-transfer-amsterdam/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":82.0,"ctr":0.0,"position":63.1,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/amsterdam-to-dusseldorf/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":8.5,"prevClicks":0.0,"prevPosition":2.0,"clickPct":0.0,"imprPct":1.0,"posDelta":6.5,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/book-now","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/car-service-amsterdam-airport-transfers/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":230.0,"ctr":0.0,"position":55.1,"prevClicks":0.0,"prevPosition":43.9,"clickPct":0.0,"imprPct":-0.27,"posDelta":11.2,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/chauffeur-amstelveen/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":12.0,"ctr":0.0,"position":34.2,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-eindhoven/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":3.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-haarlem/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":13.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-hire/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":7.0,"ctr":0.0,"position":10.9,"prevClicks":0.0,"prevPosition":5.1,"clickPct":0.0,"imprPct":0.0,"posDelta":5.7,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/chauffeur-hoofddorp/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":54.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-leiden/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":26.8,"prevClicks":1.0,"prevPosition":4.0,"clickPct":-1.0,"imprPct":3.0,"posDelta":22.8,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/chauffeur-schiphol-berlin/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":4.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-schiphol-hamburg/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":25.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-aachen/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":3.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-amsterdam-christmas-2024/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":6.0,"ctr":0.0,"position":8.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-den-haag-guide/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":19.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-schiphol-dusseldorf-business-link/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":10.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-schiphol-frankfurt/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":16.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-schiphol-paris/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":43.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-zaandam/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":33.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/cities/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/city/chauffeur-service-haarlem/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":318.0,"ctr":0.0,"position":41.0,"prevClicks":1.0,"prevPosition":39.1,"clickPct":-1.0,"imprPct":0.287,"posDelta":1.9,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/city/chauffeur-services-amsterdam-in-style/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":378.0,"ctr":0.0,"position":45.2,"prevClicks":1.0,"prevPosition":35.9,"clickPct":-1.0,"imprPct":-0.224,"posDelta":9.3,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/city/exclusive-journeys-in-charleroi/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/city/exclusive-rides-in-dusseldorf/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":266.0,"ctr":0.0,"position":27.8,"prevClicks":0.0,"prevPosition":30.1,"clickPct":0.0,"imprPct":0.209,"posDelta":-2.4,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/city/exclusive-rides-in-marseille/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":8.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/city/luxury-rides-in-hasselt/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":9.0,"ctr":0.0,"position":16.4,"prevClicks":0.0,"prevPosition":6.0,"clickPct":0.0,"imprPct":2.0,"posDelta":10.4,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/city/luxury-rides-in-montpellier/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":12.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/city/luxury-trips-transportation-zwolle/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":5.0,"ctr":0.0,"position":21.8,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/city/premium-transportation-in-kortrijk/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":7.0,"ctr":0.0,"position":12.7,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/city/prestigious-transportation-chauffeur-services-ghent/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":84.0,"ctr":0.0,"position":23.8,"prevClicks":1.0,"prevPosition":18.6,"clickPct":-1.0,"imprPct":-0.106,"posDelta":5.3,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/city/vip-taxi-rotterdam/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":450.0,"ctr":0.0,"position":34.6,"prevClicks":4.0,"prevPosition":32.9,"clickPct":-1.0,"imprPct":-0.02,"posDelta":1.6,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/contact","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":1.0,"clickPct":0.0,"imprPct":0.0,"posDelta":8.0,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/daytrip-fort-bij-nigtevecht-2/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":28.8,"prevClicks":0.0,"prevPosition":9.0,"clickPct":0.0,"imprPct":0.333,"posDelta":19.8,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/directiechauffeur/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":79.0,"ctr":0.0,"position":24.1,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/directievervoer-amsterdam/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":21.0,"ctr":0.0,"position":36.2,"prevClicks":0.0,"prevPosition":15.5,"clickPct":0.0,"imprPct":4.25,"posDelta":20.7,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/discreet-chauffeur-service-high-profile-clients/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":13.0,"ctr":0.0,"position":20.1,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/dusseldorf-chauffeur-luxe-travel-amsterdam-groningen/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":8.0,"ctr":0.0,"position":9.1,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/eco-friendly-luxury-travel/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":4.0,"clickPct":0.0,"imprPct":0.0,"posDelta":5.0,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/fleet","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":1.0,"clickPct":0.0,"imprPct":0.0,"posDelta":8.0,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/fleet/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":17.0,"ctr":0.0,"position":72.7,"prevClicks":0.0,"prevPosition":22.0,"clickPct":0.0,"imprPct":2.4,"posDelta":50.7,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/fleet/bmw-7-series-chauffeur-service/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":6.0,"ctr":0.0,"position":8.7,"prevClicks":1.0,"prevPosition":3.0,"clickPct":-1.0,"imprPct":5.0,"posDelta":5.7,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/fleet/setra-s-515-hdh/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":24.0,"ctr":0.0,"position":11.1,"prevClicks":0.0,"prevPosition":3.6,"clickPct":0.0,"imprPct":0.6,"posDelta":7.5,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/giethoorn-tour-from-amsterdam/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":5.0,"ctr":0.0,"position":9.2,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/hoidewedwd/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":5.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/jet-aviation-rotterdam/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":8.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/limousine-service-netherlands/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":11.0,"ctr":0.0,"position":73.2,"prevClicks":0.0,"prevPosition":58.1,"clickPct":0.0,"imprPct":-0.937,"posDelta":15.1,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/luxe-touringcar-vip-bus-huren-met-chauffeur/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":38.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/massage-chairs-luxury-cars-silverdrive/","site":"silverdrive.nl","flag":"striking_distance","clicks":0.0,"impressions":54.0,"ctr":0.0,"position":12.6,"prevClicks":0.0,"prevPosition":22.0,"clickPct":0.0,"imprPct":0.019,"posDelta":-9.4,"severity":1,"isNew":false},{"page":"https://silverdrive.nl/mercedes-v-class-demand/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":50.0,"ctr":0.0,"position":36.8,"prevClicks":0.0,"prevPosition":26.7,"clickPct":0.0,"imprPct":-0.49,"posDelta":10.2,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/nice-to-monaco/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":189.0,"ctr":0.0,"position":7.8,"prevClicks":0.0,"prevPosition":9.9,"clickPct":0.0,"imprPct":4.727,"posDelta":-2.1,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/partner-page/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":2.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/policy/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":8.3,"prevClicks":0.0,"prevPosition":2.0,"clickPct":0.0,"imprPct":3.0,"posDelta":6.3,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/premium-transport-services/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/private-chauffeur-service-amsterdam-friesland/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":38.0,"ctr":0.0,"position":88.4,"prevClicks":0.0,"prevPosition":78.4,"clickPct":0.0,"imprPct":-0.296,"posDelta":10.0,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/private-chauffeur-the-hague/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":30.3,"prevClicks":0.0,"prevPosition":10.8,"clickPct":0.0,"imprPct":-0.25,"posDelta":19.6,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/review/it-is-always-a-pleasure/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":12.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/review/most-reliable-and-good-drivers-services/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/rotterdam-the-hague-airport-transfer/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":10.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/schiphol-chauffeur-the-hague-elite-service/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/schiphol-vip-centre-guide/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":113.0,"ctr":0.0,"position":15.7,"prevClicks":0.0,"prevPosition":20.5,"clickPct":0.0,"imprPct":1.628,"posDelta":-4.8,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/services","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":1.0,"clickPct":0.0,"imprPct":0.0,"posDelta":8.0,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/services/airport-transfers/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":705.0,"ctr":0.0,"position":40.8,"prevClicks":0.0,"prevPosition":39.3,"clickPct":0.0,"imprPct":-0.117,"posDelta":1.5,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/services/city-transfers/","site":"silverdrive.nl","flag":"position_decay","clicks":0.0,"impressions":9.0,"ctr":0.0,"position":69.1,"prevClicks":1.0,"prevPosition":14.8,"clickPct":-1.0,"imprPct":0.8,"posDelta":54.3,"severity":3,"isNew":false},{"page":"https://silverdrive.nl/services/courier-service-high-value-items/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":291.0,"ctr":0.0,"position":38.7,"prevClicks":1.0,"prevPosition":38.7,"clickPct":-1.0,"imprPct":0.094,"posDelta":0.0,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/services/private-chauffeur-services-for-leisure/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/uber-black-amsterdam/","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":58.0,"ctr":0.0,"position":8.1,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/welcome-to-silverdrive/","site":"silverdrive.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":124.0,"ctr":0.0,"position":49.9,"prevClicks":2.0,"prevPosition":47.8,"clickPct":-1.0,"imprPct":0.216,"posDelta":2.0,"severity":2,"isNew":false},{"page":"https://silverdrive.nl/wp-content/uploads/2024/05/663c01de42302ac4e5aa2985_marrallisa20kreijkes20silverdrive20private20chauffeur-75.webp","site":"silverdrive.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://silverdrive.nl/chauffeur-service-den-haag/","site":"silverdrive.nl","flag":"dropped_out","clicks":0.0,"impressions":0.0,"ctr":0.0,"position":0.0,"prevClicks":0.0,"prevPosition":56.6,"clickPct":0.0,"imprPct":-1.0,"posDelta":0.0,"severity":4,"isNew":false},{"page":"https://viralistic.nl/","site":"viralistic.nl","flag":"striking_distance","clicks":17.0,"impressions":2885.0,"ctr":0.0059,"position":14.2,"prevClicks":11.0,"prevPosition":12.4,"clickPct":0.545,"imprPct":-0.118,"posDelta":1.8,"severity":1,"isNew":false},{"page":"https://viralistic.nl/wf-post/luxury-web-design/","site":"viralistic.nl","flag":"impression_drop","clicks":10.0,"impressions":319.0,"ctr":0.0313,"position":12.2,"prevClicks":2.0,"prevPosition":9.0,"clickPct":4.0,"imprPct":-0.542,"posDelta":3.2,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-blog/","site":"viralistic.nl","flag":"impression_drop","clicks":1.0,"impressions":17.0,"ctr":0.0588,"position":15.6,"prevClicks":2.0,"prevPosition":7.7,"clickPct":-0.5,"imprPct":-0.966,"posDelta":7.9,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-services/automation/","site":"viralistic.nl","flag":"striking_distance","clicks":1.0,"impressions":121.0,"ctr":0.0083,"position":18.3,"prevClicks":0.0,"prevPosition":20.3,"clickPct":1.0,"imprPct":-0.129,"posDelta":-2.0,"severity":1,"isNew":false},{"page":"https://viralistic.nl/wf-services/branding/","site":"viralistic.nl","flag":"position_decay","clicks":1.0,"impressions":231.0,"ctr":0.0043,"position":33.9,"prevClicks":0.0,"prevPosition":28.1,"clickPct":1.0,"imprPct":0.283,"posDelta":5.7,"severity":3,"isNew":false},{"page":"https://viralistic.nl/blog/en/business-model-canvas","site":"viralistic.nl","flag":"striking_distance","clicks":0.0,"impressions":76.0,"ctr":0.0,"position":8.2,"prevClicks":0.0,"prevPosition":12.4,"clickPct":0.0,"imprPct":0.188,"posDelta":-4.3,"severity":1,"isNew":false},{"page":"https://viralistic.nl/blog/en/conversion-rate-optimization","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":7.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/blog/en/how-to-write-seo-content","site":"viralistic.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":47.0,"prevClicks":0.0,"prevPosition":8.5,"clickPct":0.0,"imprPct":-0.5,"posDelta":38.5,"severity":3,"isNew":false},{"page":"https://viralistic.nl/blog/en/why-we-build-with-astro","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":4.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/blog/seo-uitbesteden","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":10.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-post/content-marketing-uitbesteden/","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":8.0,"ctr":0.0,"position":24.9,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-post/n8n-amsterdam-unleash-growth-viralistic/","site":"viralistic.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":24.0,"prevClicks":0.0,"prevPosition":9.0,"clickPct":0.0,"imprPct":1.0,"posDelta":15.0,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-post/n8n-cowork-day-amsterdam-automate-smarter/","site":"viralistic.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":34.0,"prevClicks":0.0,"prevPosition":4.8,"clickPct":0.0,"imprPct":-0.333,"posDelta":29.2,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-post/seo-teksten-laten-schrijven/","site":"viralistic.nl","flag":"impression_drop","clicks":0.0,"impressions":85.0,"ctr":0.0,"position":63.5,"prevClicks":0.0,"prevPosition":58.2,"clickPct":0.0,"imprPct":-0.646,"posDelta":5.3,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-post/web-design-in-amsterdam/#choosing-the-right-e-commerce-platform-shopify-lightspeed-more","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-post/web-design-in-amsterdam/#digital-marketing-strategies-boosting-traffic-and-conversions","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-post/web-design-in-amsterdam/#finding-the-right-web-designer-in-amsterdam","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-post/web-design-pitch-fail-learnings/","site":"viralistic.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":51.5,"prevClicks":0.0,"prevPosition":5.3,"clickPct":0.0,"imprPct":-0.5,"posDelta":46.3,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-post/webdesign-bureau-amsterdam/","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":50.0,"ctr":0.0,"position":28.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-post/why-your-website-looks-cheap-even-when-your-brand-is-not/","site":"viralistic.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":21.0,"prevClicks":0.0,"prevPosition":5.0,"clickPct":0.0,"imprPct":1.0,"posDelta":16.0,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-projects/wolf-pack-branding-web-design/","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":5.0,"ctr":0.0,"position":7.8,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-services/ui-ux-design/","site":"viralistic.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":109.0,"ctr":0.0,"position":18.7,"prevClicks":0.0,"prevPosition":20.9,"clickPct":0.0,"imprPct":0.147,"posDelta":-2.1,"severity":2,"isNew":false},{"page":"https://viralistic.nl/wf-services/web-design/","site":"viralistic.nl","flag":"position_decay","clicks":0.0,"impressions":1132.0,"ctr":0.0,"position":39.4,"prevClicks":3.0,"prevPosition":27.3,"clickPct":-1.0,"imprPct":0.862,"posDelta":12.1,"severity":3,"isNew":false},{"page":"https://viralistic.nl/wf-services/web-design/#elegant-minimal-web-design","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":12.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-services/web-design/#the-project-plan","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":12.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/wf-services/web-design/#why-choose-viralistic-for-your-web-design-project-in-amsterdam","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":12.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://viralistic.nl/workflow-automatisering-n8n-ambitieuze-merken-2/","site":"viralistic.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/locaties/enschede-klanderij/","site":"potae.nl","flag":"click_surge","clicks":17.0,"impressions":290.0,"ctr":0.0586,"position":2.9,"prevClicks":3.0,"prevPosition":3.7,"clickPct":4.667,"imprPct":0.261,"posDelta":-0.7,"severity":1,"isNew":false},{"page":"https://www.potae.nl/is-a-baked-potato-healthy/","site":"potae.nl","flag":"striking_distance","clicks":1.0,"impressions":299.0,"ctr":0.0033,"position":9.8,"prevClicks":0.0,"prevPosition":18.2,"clickPct":1.0,"imprPct":13.95,"posDelta":-8.4,"severity":1,"isNew":false},{"page":"https://www.potae.nl/potae-points/","site":"potae.nl","flag":"position_decay","clicks":1.0,"impressions":15.0,"ctr":0.0667,"position":9.5,"prevClicks":1.0,"prevPosition":1.9,"clickPct":0.0,"imprPct":1.143,"posDelta":7.7,"severity":3,"isNew":false},{"page":"https://www.potae.nl/catering/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/disclaimer/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":2.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/en/our-menu/chicken-kumpir/","site":"potae.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":9.5,"prevClicks":0.0,"prevPosition":2.0,"clickPct":0.0,"imprPct":1.0,"posDelta":7.5,"severity":3,"isNew":false},{"page":"https://www.potae.nl/en/our-menu/falafel/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/event-catering-dordrecht/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":8.0,"ctr":0.0,"position":7.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/eventcatering-tilburg/","site":"potae.nl","flag":"position_decay","clicks":0.0,"impressions":18.0,"ctr":0.0,"position":49.0,"prevClicks":0.0,"prevPosition":32.5,"clickPct":0.0,"imprPct":3.5,"posDelta":16.5,"severity":3,"isNew":false},{"page":"https://www.potae.nl/foodtruck-apeldoorn/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":9.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/foodtruck-enschede/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":11.8,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/foodtruck-hoofddorp/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":18.0,"ctr":0.0,"position":8.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/healthy-lunch-ideas-for-work/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/menu/avocado-kumpir/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":12.8,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/menu/chicken-kumpir/","site":"potae.nl","flag":"position_decay","clicks":0.0,"impressions":7.0,"ctr":0.0,"position":12.3,"prevClicks":1.0,"prevPosition":4.6,"clickPct":-1.0,"imprPct":0.0,"posDelta":7.7,"severity":3,"isNew":false},{"page":"https://www.potae.nl/menu/falafel/","site":"potae.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":13.5,"prevClicks":0.0,"prevPosition":6.5,"clickPct":0.0,"imprPct":1.0,"posDelta":7.0,"severity":3,"isNew":false},{"page":"https://www.potae.nl/menu/king-kumpir/","site":"potae.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":194.0,"ctr":0.0,"position":7.1,"prevClicks":0.0,"prevPosition":7.5,"clickPct":0.0,"imprPct":-0.067,"posDelta":-0.4,"severity":2,"isNew":false},{"page":"https://www.potae.nl/menu/sweet-kumpir/","site":"potae.nl","flag":"position_decay","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":12.0,"prevClicks":0.0,"prevPosition":3.5,"clickPct":0.0,"imprPct":1.0,"posDelta":8.5,"severity":3,"isNew":false},{"page":"https://www.potae.nl/menu/tuna-kumpir/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/ons-verhaal/","site":"potae.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":140.0,"ctr":0.0,"position":5.3,"prevClicks":1.0,"prevPosition":5.5,"clickPct":-1.0,"imprPct":0.138,"posDelta":-0.1,"severity":2,"isNew":false},{"page":"https://www.potae.nl/onze-aardappelen/over-onze-speciale-ovens/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/privacy-policy/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":8.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/upcp_product/tuna-kumpir/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":12.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/wat-is-kumpir/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":5.0,"ctr":0.0,"position":6.4,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.potae.nl/winactie/","site":"potae.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/","site":"transmissies.nl","flag":"striking_distance","clicks":44.0,"impressions":546.0,"ctr":0.0806,"position":11.6,"prevClicks":39.0,"prevPosition":12.5,"clickPct":0.128,"imprPct":0.13,"posDelta":-0.8,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/bmw-tussenbakken-xdrive/","site":"transmissies.nl","flag":"click_surge","clicks":31.0,"impressions":388.0,"ctr":0.0799,"position":6.0,"prevClicks":13.0,"prevPosition":5.5,"clickPct":1.385,"imprPct":0.069,"posDelta":0.5,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/versnellingsbak-revisie-kosten/","site":"transmissies.nl","flag":"click_surge","clicks":28.0,"impressions":1455.0,"ctr":0.0192,"position":8.0,"prevClicks":9.0,"prevPosition":8.8,"clickPct":2.111,"imprPct":1.127,"posDelta":-0.9,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/dq200-dsg7-problemen-alles-wat-u-moet-weten-over-klachten-symptomen-oplossingen-atr-transmissies/","site":"transmissies.nl","flag":"striking_distance","clicks":18.0,"impressions":778.0,"ctr":0.0231,"position":10.6,"prevClicks":20.0,"prevPosition":9.3,"clickPct":-0.1,"imprPct":-0.038,"posDelta":1.2,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/foutcode-p1755-p0744-p1804-clutch-actuator/","site":"transmissies.nl","flag":"click_surge","clicks":14.0,"impressions":869.0,"ctr":0.0161,"position":4.0,"prevClicks":9.0,"prevPosition":4.1,"clickPct":0.556,"imprPct":-0.028,"posDelta":-0.1,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/foutcode-p0867-30097-volkswagen-gte-audi-e-tron/","site":"transmissies.nl","flag":"click_drop","clicks":9.0,"impressions":258.0,"ctr":0.0349,"position":4.5,"prevClicks":16.0,"prevPosition":4.2,"clickPct":-0.437,"imprPct":-0.154,"posDelta":0.3,"severity":4,"isNew":false},{"page":"https://www.transmissies.nl/about-atr/","site":"transmissies.nl","flag":"striking_distance","clicks":5.0,"impressions":60.0,"ctr":0.0833,"position":8.1,"prevClicks":1.0,"prevPosition":6.0,"clickPct":4.0,"imprPct":0.5,"posDelta":2.2,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/over-atr/onze-specialisatie/","site":"transmissies.nl","flag":"striking_distance","clicks":5.0,"impressions":240.0,"ctr":0.0208,"position":9.0,"prevClicks":3.0,"prevPosition":5.7,"clickPct":0.667,"imprPct":0.356,"posDelta":3.2,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/foutcode-p189c-p1895-p17bf-p0841/","site":"transmissies.nl","flag":"striking_distance","clicks":4.0,"impressions":271.0,"ctr":0.0148,"position":10.2,"prevClicks":4.0,"prevPosition":8.7,"clickPct":0.0,"imprPct":0.08,"posDelta":1.5,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/vag-omd-e-axle-revisie-volledige-elektrische-autos/","site":"transmissies.nl","flag":"new_performing","clicks":2.0,"impressions":4.0,"ctr":0.5,"position":8.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":1.0,"imprPct":1.0,"posDelta":0.0,"severity":1,"isNew":true},{"page":"https://www.transmissies.nl/category/technical-information/","site":"transmissies.nl","flag":"position_decay","clicks":1.0,"impressions":17.0,"ctr":0.0588,"position":12.2,"prevClicks":0.0,"prevPosition":6.3,"clickPct":1.0,"imprPct":-0.346,"posDelta":5.8,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/211-250-14-02/","site":"transmissies.nl","flag":"new_performing","clicks":1.0,"impressions":2.0,"ctr":0.5,"position":1.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":1.0,"imprPct":1.0,"posDelta":0.0,"severity":1,"isNew":true},{"page":"https://www.transmissies.nl/product/mercedes-722-618/","site":"transmissies.nl","flag":"new_performing","clicks":1.0,"impressions":1.0,"ctr":1.0,"position":3.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":1.0,"imprPct":1.0,"posDelta":0.0,"severity":1,"isNew":true},{"page":"https://www.transmissies.nl/product/mercedes-722-696/","site":"transmissies.nl","flag":"position_decay","clicks":1.0,"impressions":3.0,"ctr":0.3333,"position":15.7,"prevClicks":0.0,"prevPosition":4.5,"clickPct":1.0,"imprPct":0.5,"posDelta":11.2,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/about-atr/our-specialty/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":14.0,"ctr":0.0,"position":16.9,"prevClicks":0.0,"prevPosition":4.8,"clickPct":0.0,"imprPct":0.4,"posDelta":12.1,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/amt-live-16/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":65.0,"prevClicks":0.0,"prevPosition":9.0,"clickPct":0.0,"imprPct":1.0,"posDelta":56.0,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/author/infotransmissies-nl/page/4/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":19.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/automotive-trade-show/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/bmw-m5-dmes-in-coma/","site":"transmissies.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":147.0,"ctr":0.0,"position":2.3,"prevClicks":1.0,"prevPosition":2.0,"clickPct":-1.0,"imprPct":0.361,"posDelta":0.3,"severity":2,"isNew":false},{"page":"https://www.transmissies.nl/brandstoffen/benzine/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":99.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/contact-2/","site":"transmissies.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":224.0,"ctr":0.0,"position":2.8,"prevClicks":4.0,"prevPosition":3.4,"clickPct":-1.0,"imprPct":0.185,"posDelta":-0.5,"severity":2,"isNew":false},{"page":"https://www.transmissies.nl/dsg-versnellingsbak/","site":"transmissies.nl","flag":"impression_drop","clicks":0.0,"impressions":33.0,"ctr":0.0,"position":7.7,"prevClicks":3.0,"prevPosition":20.2,"clickPct":-1.0,"imprPct":-0.847,"posDelta":-12.5,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/een-dashboard-melding-rondom-blokeer-schakelaar-keuzehendel-in-mijn-vag-gte-hybride/","site":"transmissies.nl","flag":"striking_distance","clicks":0.0,"impressions":63.0,"ctr":0.0,"position":11.9,"prevClicks":0.0,"prevPosition":12.3,"clickPct":0.0,"imprPct":0.212,"posDelta":-0.4,"severity":1,"isNew":false},{"page":"https://www.transmissies.nl/foutcode-0717-0718-2767-2768-mercedes-7g-tronic/","site":"transmissies.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":153.0,"ctr":0.0,"position":4.2,"prevClicks":3.0,"prevPosition":4.4,"clickPct":-1.0,"imprPct":0.013,"posDelta":-0.2,"severity":2,"isNew":false},{"page":"https://www.transmissies.nl/foutcode-p0796/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":4.0,"ctr":0.0,"position":3.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/foutcode-p17d8/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/foutcode-p1895-008-p1896-008-opel-easytronic/","site":"transmissies.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":246.0,"ctr":0.0,"position":5.7,"prevClicks":0.0,"prevPosition":4.9,"clickPct":0.0,"imprPct":-0.112,"posDelta":0.7,"severity":2,"isNew":false},{"page":"https://www.transmissies.nl/koppeling-vervangen-kosten","site":"transmissies.nl","flag":"impression_drop","clicks":0.0,"impressions":27.0,"ctr":0.0,"position":2.0,"prevClicks":5.0,"prevPosition":8.2,"clickPct":-1.0,"imprPct":-0.964,"posDelta":-6.2,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/koppeling-vervangen/","site":"transmissies.nl","flag":"impression_drop","clicks":0.0,"impressions":29.0,"ctr":0.0,"position":20.9,"prevClicks":0.0,"prevPosition":18.0,"clickPct":0.0,"imprPct":-0.894,"posDelta":2.9,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/koppelomvormer-klachten/","site":"transmissies.nl","flag":"zombie_impressions_no_clicks","clicks":0.0,"impressions":226.0,"ctr":0.0,"position":9.5,"prevClicks":0.0,"prevPosition":11.2,"clickPct":0.0,"imprPct":0.171,"posDelta":-1.7,"severity":2,"isNew":false},{"page":"https://www.transmissies.nl/nieuws/page/4/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":14.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/nieuws/page/5/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":41.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/pdk/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":5.0,"ctr":0.0,"position":20.0,"prevClicks":0.0,"prevPosition":9.3,"clickPct":0.0,"imprPct":-0.722,"posDelta":10.7,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product-categorie/koppelomvormers/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product-categorie/koppelomvormers/page/3/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/09k-vw-transporter/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":6.7,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/169-250-02-02/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/211-250-08-02/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/211-250-13-02/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":9.0,"prevClicks":0.0,"prevPosition":3.0,"clickPct":0.0,"imprPct":1.0,"posDelta":6.0,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/221-250-22-02/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":11.0,"prevClicks":0.0,"prevPosition":2.0,"clickPct":0.0,"imprPct":0.0,"posDelta":9.0,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/55-50sn-af33/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":4.7,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/aw-55-51sn/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":4.7,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/externe-warmtewisselaar/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":25.0,"ctr":0.0,"position":61.7,"prevClicks":0.0,"prevPosition":32.3,"clickPct":0.0,"imprPct":-0.194,"posDelta":29.5,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/gm-5l40-xw/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":2.3,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/gm-5l40/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":2.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/mercedes-722-612/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/mercedes-722-640/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":4.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/mercedes-722-683/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":6.0,"ctr":0.0,"position":9.2,"prevClicks":0.0,"prevPosition":3.4,"clickPct":0.0,"imprPct":0.2,"posDelta":5.8,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/mercedes-722-684/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":12.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/stator-koppelomvormer/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":33.0,"ctr":0.0,"position":42.0,"prevClicks":0.0,"prevPosition":31.7,"clickPct":0.0,"imprPct":0.833,"posDelta":10.4,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/tf80sc-aisin-warner-kleppenblok/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":8.5,"prevClicks":2.0,"prevPosition":2.9,"clickPct":-1.0,"imprPct":-0.778,"posDelta":5.6,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/tussenbak-ml-164model/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":7.0,"ctr":0.0,"position":8.1,"prevClicks":1.0,"prevPosition":1.7,"clickPct":-1.0,"imprPct":1.333,"posDelta":6.5,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/product/zf-6hp19-1071-040-089/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/product/zf-6hp21-1071-030-029/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":1.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/tag/a-005-446-37-10/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":4.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/tag/citroen/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":5.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/tag/dw5/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":5.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/tag/p0867/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":3.0,"ctr":0.0,"position":20.7,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/uploads/2014/03/Plattegrond-ATR-Transmissies.pdf","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":41.0,"prevClicks":0.0,"prevPosition":2.0,"clickPct":0.0,"imprPct":0.0,"posDelta":39.0,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/versnellingsbak-reviseren/","site":"transmissies.nl","flag":"impression_drop","clicks":0.0,"impressions":85.0,"ctr":0.0,"position":41.5,"prevClicks":3.0,"prevPosition":43.7,"clickPct":-1.0,"imprPct":-0.805,"posDelta":-2.1,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/versnellingsbak-spoelen/","site":"transmissies.nl","flag":"impression_drop","clicks":0.0,"impressions":18.0,"ctr":0.0,"position":17.7,"prevClicks":1.0,"prevPosition":16.8,"clickPct":-1.0,"imprPct":-0.918,"posDelta":0.9,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/versnellingsbak-vervangen-of-reviseren/","site":"transmissies.nl","flag":"impression_drop","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":4.0,"prevClicks":1.0,"prevPosition":39.7,"clickPct":-1.0,"imprPct":-0.997,"posDelta":-35.7,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/webwinkel/page/7/","site":"transmissies.nl","flag":"position_decay","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":13.0,"prevClicks":0.0,"prevPosition":7.0,"clickPct":0.0,"imprPct":0.0,"posDelta":6.0,"severity":3,"isNew":false},{"page":"https://www.transmissies.nl/werkenbij/machinebankwerker-constructiebankwerker-mechatronica-monteur-bij-atr-transmissie/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":4.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/werkenbij/remote-diagnosetechnicus-transmissies/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/wij-zijn-de-hele-zomer-open/","site":"transmissies.nl","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":16.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://www.transmissies.nl/automaatbak-revisie","site":"transmissies.nl","flag":"dropped_out","clicks":0.0,"impressions":0.0,"ctr":0.0,"position":0.0,"prevClicks":1.0,"prevPosition":27.4,"clickPct":-1.0,"imprPct":-1.0,"posDelta":0.0,"severity":4,"isNew":false},{"page":"https://www.transmissies.nl/automaatbak-revisie/","site":"transmissies.nl","flag":"dropped_out","clicks":0.0,"impressions":0.0,"ctr":0.0,"position":0.0,"prevClicks":0.0,"prevPosition":21.7,"clickPct":0.0,"imprPct":-1.0,"posDelta":0.0,"severity":4,"isNew":false},{"page":"https://vianenkvs.com/","site":"vianenkvs.com","flag":"striking_distance","clicks":46.0,"impressions":788.0,"ctr":0.0584,"position":8.9,"prevClicks":53.0,"prevPosition":9.8,"clickPct":-0.132,"imprPct":0.124,"posDelta":-0.8,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/DW172-v17.php","site":"vianenkvs.com","flag":"click_surge","clicks":21.0,"impressions":623.0,"ctr":0.0337,"position":5.9,"prevClicks":13.0,"prevPosition":6.0,"clickPct":0.615,"imprPct":0.984,"posDelta":0.0,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/commercial-kitchen-extractor-fans-guide/","site":"vianenkvs.com","flag":"striking_distance","clicks":5.0,"impressions":358.0,"ctr":0.014,"position":8.2,"prevClicks":0.0,"prevPosition":8.5,"clickPct":1.0,"imprPct":4.114,"posDelta":-0.2,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/commercial-range-hood-guide/","site":"vianenkvs.com","flag":"striking_distance","clicks":5.0,"impressions":574.0,"ctr":0.0087,"position":8.0,"prevClicks":0.0,"prevPosition":8.3,"clickPct":1.0,"imprPct":0.335,"posDelta":-0.3,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/ventilated-ceilings/","site":"vianenkvs.com","flag":"striking_distance","clicks":5.0,"impressions":171.0,"ctr":0.0292,"position":10.2,"prevClicks":1.0,"prevPosition":11.4,"clickPct":4.0,"imprPct":0.326,"posDelta":-1.2,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/products/jet-stream/","site":"vianenkvs.com","flag":"striking_distance","clicks":4.0,"impressions":56.0,"ctr":0.0714,"position":10.9,"prevClicks":1.0,"prevPosition":8.4,"clickPct":3.0,"imprPct":0.697,"posDelta":2.5,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/commercial-kitchen-exhaust-fan-the-heart-of-your-ventilation-system/","site":"vianenkvs.com","flag":"striking_distance","clicks":2.0,"impressions":912.0,"ctr":0.0022,"position":8.7,"prevClicks":1.0,"prevPosition":9.2,"clickPct":1.0,"imprPct":3.903,"posDelta":-0.5,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/canopy/","site":"vianenkvs.com","flag":"striking_distance","clicks":1.0,"impressions":85.0,"ctr":0.0118,"position":9.7,"prevClicks":1.0,"prevPosition":8.3,"clickPct":0.0,"imprPct":0.545,"posDelta":1.4,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/commercial-kitchen-extraction-installation/","site":"vianenkvs.com","flag":"striking_distance","clicks":1.0,"impressions":395.0,"ctr":0.0025,"position":13.1,"prevClicks":0.0,"prevPosition":12.9,"clickPct":1.0,"imprPct":0.33,"posDelta":0.1,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/offshore/","site":"vianenkvs.com","flag":"striking_distance","clicks":1.0,"impressions":214.0,"ctr":0.0047,"position":9.1,"prevClicks":2.0,"prevPosition":6.8,"clickPct":-0.5,"imprPct":1.378,"posDelta":2.3,"severity":1,"isNew":false},{"page":"https://vianenkvs.com/products/vianergy-ii/","site":"vianenkvs.com","flag":"position_decay","clicks":1.0,"impressions":33.0,"ctr":0.0303,"position":9.4,"prevClicks":0.0,"prevPosition":2.4,"clickPct":1.0,"imprPct":0.5,"posDelta":7.0,"severity":3,"isNew":false},{"page":"https://vianenkvs.com/blog/","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":2.0,"ctr":0.0,"position":5.5,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/","site":"vianenkvs.com","flag":"position_decay","clicks":0.0,"impressions":29.0,"ctr":0.0,"position":16.9,"prevClicks":0.0,"prevPosition":10.2,"clickPct":0.0,"imprPct":0.115,"posDelta":6.7,"severity":3,"isNew":false},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-1","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-10","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-18","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-2","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-6","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-7","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true},{"page":"https://vianenkvs.com/marine-galley-hood-guide/#elementor-toc__heading-anchor-9","site":"vianenkvs.com","flag":"new_no_clicks","clicks":0.0,"impressions":1.0,"ctr":0.0,"position":6.0,"prevClicks":0.0,"prevPosition":0.0,"clickPct":0.0,"imprPct":1.0,"posDelta":0.0,"severity":2,"isNew":true}]}</script>
+<script>
+(function () {
+  'use strict';
+  const DATA = JSON.parse(document.getElementById('seo-data').textContent);
+
+  const TYPE_META = [
+    { key: 'new_no_clicks',                label: 'New, no clicks yet' },
+    { key: 'position_decay',               label: 'Position slipping' },
+    { key: 'striking_distance',            label: 'Striking distance' },
+    { key: 'zombie_impressions_no_clicks', label: 'Impressions, no clicks' },
+    { key: 'new_performing',               label: 'New & performing' },
+  ];
+  const OTHER_TYPES = ['impression_drop', 'click_drop', 'click_surge', 'dropped_out'];
+  const TYPE_LABELS = {
+    new_no_clicks: 'New, no clicks yet',
+    position_decay: 'Position slipping',
+    striking_distance: 'Striking distance',
+    zombie_impressions_no_clicks: 'Impressions, no clicks',
+    new_performing: 'New & performing',
+    impression_drop: 'Impression drop',
+    click_drop: 'Click drop',
+    click_surge: 'Click surge',
+    dropped_out: 'Dropped out of results',
+  };
+  const SERIES_VARS = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5'];
+  const SEVERITY = {
+    1: { label: 'Low',      var: '--text-muted' },
+    2: { label: 'Medium',   var: '--status-warning' },
+    3: { label: 'High',     var: '--status-serious' },
+    4: { label: 'Critical', var: '--status-critical' },
+  };
+
+  const state = { site: 'all', range: 30 };
+
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const fmt = (n) => Number(n).toLocaleString('en-US');
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  const shortDate = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+  const pagePath = (url) => {
+    try {
+      const u = new URL(url);
+      return u.pathname === '/' ? u.hostname.replace(/^www\./, '') : decodeURIComponent(u.pathname);
+    } catch { return url; }
+  };
+
+  // ---- data slicing -------------------------------------------------------
+  function visibleDates() {
+    return state.range === 'all' ? DATA.dates : DATA.dates.slice(-state.range);
+  }
+  function slice() {
+    const dates = visibleDates();
+    const dset = new Set(dates);
+    const perDay = new Map(dates.map(d => [d, {}]));
+    const perSite = new Map(DATA.sites.map(s => [s, 0]));
+    for (const rec of DATA.counts) {
+      if (!dset.has(rec.date)) continue;
+      const inSiteFilter = state.site === 'all' || rec.site === state.site;
+      let siteTotal = 0;
+      for (const [t, c] of Object.entries(rec.byType)) {
+        siteTotal += c;
+        if (inSiteFilter) {
+          const day = perDay.get(rec.date);
+          day[t] = (day[t] || 0) + c;
+        }
+      }
+      perSite.set(rec.site, perSite.get(rec.site) + siteTotal);
+    }
+    return { dates, perDay, perSite };
+  }
+  function latestFlags() {
+    return DATA.latestFlags.filter(f => state.site === 'all' || f.site === state.site);
+  }
+
+  // ---- filters ------------------------------------------------------------
+  function buildFilters() {
+    const root = document.getElementById('filters');
+    root.textContent = '';
+    const mk = (glabel, options, sel, onpick) => {
+      const g = el('div', 'pillgroup');
+      g.appendChild(el('span', 'glabel', glabel));
+      for (const o of options) {
+        const b = el('button', 'pill', o.label);
+        b.setAttribute('aria-pressed', String(o.value === sel));
+        b.addEventListener('click', () => { onpick(o.value); render(); });
+        g.appendChild(b);
+      }
+      root.appendChild(g);
+    };
+    mk('Period', [
+      { value: 14, label: 'Last 14 days' },
+      { value: 30, label: 'Last 30 days' },
+      { value: 'all', label: 'All (' + DATA.dates.length + ' days)' },
+    ], state.range, v => { state.range = v; });
+    mk('Site', [{ value: 'all', label: 'All sites' }]
+      .concat(DATA.sites.map(s => ({ value: s, label: s }))), state.site, v => { state.site = v; });
+  }
+
+  // ---- KPI tiles ----------------------------------------------------------
+  function buildKpis() {
+    const root = document.getElementById('kpis');
+    root.textContent = '';
+    const { dates, perDay } = slice();
+    const last = dates[dates.length - 1];
+    const prev = dates[dates.length - 2];
+    const sum = (day) => Object.values(perDay.get(day) || {}).reduce((a, b) => a + b, 0);
+    const lf = latestFlags();
+
+    const tiles = [
+      {
+        label: 'Flags on ' + shortDate(last), value: sum(last),
+        delta: prev !== undefined ? { diff: sum(last) - sum(prev), vs: 'vs ' + shortDate(prev), upIsBad: true } : null,
+      },
+      { label: 'Striking-distance pages', value: lf.filter(f => f.flag === 'striking_distance').length,
+        note: 'position 8–20 · almost page 1' },
+      { label: 'High / critical flags', value: lf.filter(f => f.severity >= 3).length,
+        note: 'severity 3+ today' },
+      { label: 'New & performing', value: lf.filter(f => f.flag === 'new_performing' || f.flag === 'click_surge').length,
+        note: 'incl. click surges' },
+    ];
+    for (const t of tiles) {
+      const tile = el('div', 'tile');
+      tile.appendChild(el('div', 'label', t.label));
+      tile.appendChild(el('div', 'value', fmt(t.value)));
+      const d = el('div', 'delta');
+      if (t.delta) {
+        const s = t.delta.diff;
+        const cls = s === 0 ? '' : (s > 0 ? (t.delta.upIsBad ? 'up-bad' : 'up-good') : (t.delta.upIsBad ? 'down-good' : 'down-bad'));
+        const span = el('span', cls, (s > 0 ? '▲ +' : s < 0 ? '▼ ' : '· ') + fmt(s));
+        d.appendChild(span);
+        d.appendChild(document.createTextNode(' ' + t.delta.vs));
+      } else if (t.note) {
+        d.textContent = t.note;
+      }
+      tile.appendChild(d);
+      root.appendChild(tile);
+    }
+  }
+
+  // ---- shared svg helpers -------------------------------------------------
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs) {
+    const e = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+    return e;
+  }
+  function niceTicks(max, n = 4) {
+    if (max <= 0) return [0, 1];
+    const raw = max / n;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+    const ticks = [];
+    for (let v = 0; v <= max + step * 0.001; v += step) ticks.push(Math.round(v * 100) / 100);
+    if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step);
+    return ticks;
+  }
+  function tooltipFor(card) {
+    let tip = card.querySelector('.tooltip');
+    if (!tip) { tip = el('div', 'tooltip'); card.appendChild(tip); }
+    return tip;
+  }
+  function placeTip(tip, card, x, y) {
+    const cw = card.clientWidth;
+    tip.style.display = 'block';
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = x + 14;
+    if (left + tw > cw - 8) left = x - tw - 14;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = Math.max(8, y - th - 6) + 'px';
+  }
+  function tipRow(tip, color, name, value) {
+    const row = el('div', 'trow');
+    const lk = el('span', 'lk'); lk.style.background = color;
+    row.appendChild(lk);
+    row.appendChild(el('span', 'nm', name));
+    row.appendChild(el('span', 'val', fmt(value)));
+    tip.appendChild(row);
+  }
+
+  // ---- chart 1: trend line ------------------------------------------------
+  function buildTrend() {
+    const holder = document.getElementById('chart-trend');
+    const card = document.getElementById('card-trend');
+    holder.textContent = '';
+    const { dates, perDay } = slice();
+    const vals = dates.map(d => Object.values(perDay.get(d) || {}).reduce((a, b) => a + b, 0));
+    const W = Math.max(holder.clientWidth || 640, 320), H = 220;
+    const m = { t: 12, r: 46, b: 26, l: 36 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const max = Math.max(...vals, 1);
+    const ticks = niceTicks(max);
+    const yMax = ticks[ticks.length - 1];
+    const X = i => m.l + (dates.length === 1 ? iw / 2 : (i / (dates.length - 1)) * iw);
+    const Y = v => m.t + ih - (v / yMax) * ih;
+
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': 'Line chart of pages flagged per day' });
+
+    for (const t of ticks) {
+      svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: css('--grid'), 'stroke-width': 1 }));
+      const lbl = svgEl('text', { x: m.l - 8, y: Y(t) + 4, 'text-anchor': 'end', 'font-size': 11, fill: css('--text-muted') });
+      lbl.textContent = fmt(t);
+      svg.appendChild(lbl);
+    }
+    svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0), stroke: css('--baseline'), 'stroke-width': 1 }));
+
+    const nx = Math.max(2, Math.floor(dates.length / Math.max(2, Math.floor(iw / 90))));
+    dates.forEach((d, i) => {
+      if (i % nx !== 0 && i !== dates.length - 1) return;
+      const t = svgEl('text', { x: X(i), y: H - 8, 'text-anchor': 'middle', 'font-size': 11, fill: css('--text-muted') });
+      t.textContent = shortDate(d);
+      svg.appendChild(t);
+    });
+
+    const pts = vals.map((v, i) => `${X(i)},${Y(v)}`);
+    svg.appendChild(svgEl('path', {
+      d: `M${m.l},${Y(0)} L` + pts.join(' L') + ` L${X(dates.length - 1)},${Y(0)} Z`,
+      fill: css('--series-1'), opacity: 0.1,
+    }));
+    svg.appendChild(svgEl('path', {
+      d: 'M' + pts.join(' L'), fill: 'none', stroke: css('--series-1'),
+      'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+    }));
+    const li = vals.length - 1;
+    svg.appendChild(svgEl('circle', { cx: X(li), cy: Y(vals[li]), r: 4, fill: css('--series-1'), stroke: css('--surface-1'), 'stroke-width': 2 }));
+    const endLbl = svgEl('text', { x: X(li) + 8, y: Y(vals[li]) + 4, 'font-size': 12, 'font-weight': 650, fill: css('--text-primary') });
+    endLbl.textContent = fmt(vals[li]);
+    svg.appendChild(endLbl);
+
+    // crosshair + tooltip
+    const cross = svgEl('line', { y1: m.t, y2: m.t + ih, stroke: css('--baseline'), 'stroke-width': 1, visibility: 'hidden' });
+    const dot = svgEl('circle', { r: 4, fill: css('--series-1'), stroke: css('--surface-1'), 'stroke-width': 2, visibility: 'hidden' });
+    svg.appendChild(cross); svg.appendChild(dot);
+    const tip = tooltipFor(card);
+    const hit = svgEl('rect', { x: m.l, y: 0, width: iw, height: H, fill: 'transparent' });
+    hit.addEventListener('pointermove', (ev) => {
+      const r = svg.getBoundingClientRect();
+      const px = (ev.clientX - r.left) * (W / r.width);
+      const i = Math.max(0, Math.min(dates.length - 1, Math.round((px - m.l) / (iw / Math.max(1, dates.length - 1)))));
+      cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); cross.setAttribute('visibility', 'visible');
+      dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(vals[i])); dot.setAttribute('visibility', 'visible');
+      tip.textContent = '';
+      tip.appendChild(el('div', 'tdate', shortDate(dates[i])));
+      tipRow(tip, css('--series-1'), 'Pages flagged', vals[i]);
+      const cr = card.getBoundingClientRect();
+      placeTip(tip, card, ev.clientX - cr.left, ev.clientY - cr.top);
+    });
+    hit.addEventListener('pointerleave', () => {
+      tip.style.display = 'none';
+      cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden');
+    });
+    svg.appendChild(hit);
+    holder.appendChild(svg);
+
+    // data table
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Date', 'Pages flagged']));
+    dates.forEach((d, i) => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, d));
+      tr.appendChild(el('td', 'num', fmt(vals[i])));
+      tbl.appendChild(tr);
+    });
+    const th = document.getElementById('table-trend'); th.textContent = ''; th.appendChild(tbl);
+  }
+
+  // ---- chart 2: stacked columns by type ----------------------------------
+  function typeSeries() {
+    const { dates, perDay } = slice();
+    const series = TYPE_META.map((t, i) => ({
+      key: t.key, label: t.label, color: css(SERIES_VARS[i]),
+      vals: dates.map(d => (perDay.get(d) || {})[t.key] || 0),
+    }));
+    series.push({
+      key: 'other', label: 'Other', color: css('--series-other'),
+      vals: dates.map(d => OTHER_TYPES.reduce((a, t) => a + ((perDay.get(d) || {})[t] || 0), 0)),
+    });
+    return { dates, series };
+  }
+  function buildTypes() {
+    const holder = document.getElementById('chart-types');
+    const card = document.getElementById('card-types');
+    holder.textContent = '';
+    const { dates, series } = typeSeries();
+
+    const legend = document.getElementById('legend-types');
+    legend.textContent = '';
+    for (const s of series) {
+      const k = el('span', 'key');
+      const sw = el('span', 'sw'); sw.style.background = s.color;
+      k.appendChild(sw); k.appendChild(document.createTextNode(s.label));
+      legend.appendChild(k);
+    }
+
+    const W = Math.max(holder.clientWidth || 640, 320), H = 240;
+    const m = { t: 12, r: 12, b: 26, l: 36 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const totals = dates.map((_, i) => series.reduce((a, s) => a + s.vals[i], 0));
+    const ticks = niceTicks(Math.max(...totals, 1));
+    const yMax = ticks[ticks.length - 1];
+    const band = iw / dates.length;
+    const bw = Math.min(24, Math.max(3, band - 2));
+    const Y = v => m.t + ih - (v / yMax) * ih;
+
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': 'Stacked columns of daily flags by type' });
+    for (const t of ticks) {
+      svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: css('--grid'), 'stroke-width': 1 }));
+      const lbl = svgEl('text', { x: m.l - 8, y: Y(t) + 4, 'text-anchor': 'end', 'font-size': 11, fill: css('--text-muted') });
+      lbl.textContent = fmt(t);
+      svg.appendChild(lbl);
+    }
+    svg.appendChild(svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0), stroke: css('--baseline'), 'stroke-width': 1 }));
+
+    const nx = Math.max(2, Math.floor(dates.length / Math.max(2, Math.floor(iw / 90))));
+    dates.forEach((d, i) => {
+      if (i % nx !== 0 && i !== dates.length - 1) return;
+      const t = svgEl('text', { x: m.l + band * i + band / 2, y: H - 8, 'text-anchor': 'middle', 'font-size': 11, fill: css('--text-muted') });
+      t.textContent = shortDate(d);
+      svg.appendChild(t);
+    });
+
+    const tip = tooltipFor(card);
+    dates.forEach((d, i) => {
+      const cx = m.l + band * i + band / 2;
+      let acc = 0;
+      const segsTop = series.filter(s => s.vals[i] > 0);
+      segsTop.forEach((s, si) => {
+        const v = s.vals[i];
+        const y1 = Y(acc + v), y0 = Y(acc);
+        const isTop = si === segsTop.length - 1;
+        const h = Math.max(0, y0 - y1 - (segsTop.length > 1 ? 2 : 0)); // 2px surface gap
+        const rTop = isTop ? Math.min(4, bw / 2, h) : 0;
+        const x = cx - bw / 2, yy = y1, hh = Math.max(h, 0.5);
+        const path = isTop && rTop > 0
+          ? `M${x},${yy + hh} L${x},${yy + rTop} Q${x},${yy} ${x + rTop},${yy} L${x + bw - rTop},${yy} Q${x + bw},${yy} ${x + bw},${yy + rTop} L${x + bw},${yy + hh} Z`
+          : null;
+        const seg = path
+          ? svgEl('path', { d: path, fill: s.color })
+          : svgEl('rect', { x, y: yy, width: bw, height: hh, fill: s.color });
+        seg.style.cursor = 'default';
+        svg.appendChild(seg);
+        acc += v;
+      });
+      // one hit area per column; tooltip lists every series at that date
+      const hit = svgEl('rect', { x: m.l + band * i, y: m.t, width: band, height: ih, fill: 'transparent' });
+      hit.addEventListener('pointermove', (ev) => {
+        tip.textContent = '';
+        tip.appendChild(el('div', 'tdate', shortDate(d) + ' · ' + fmt(totals[i]) + ' flags'));
+        for (const s of series) if (s.vals[i] > 0) tipRow(tip, s.color, s.label, s.vals[i]);
+        if (totals[i] === 0) tip.appendChild(el('div', 'tdate', 'No flags'));
+        const cr = card.getBoundingClientRect();
+        placeTip(tip, card, ev.clientX - cr.left, ev.clientY - cr.top);
+      });
+      hit.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+      svg.appendChild(hit);
+    });
+    holder.appendChild(svg);
+
+    // data table
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Date'].concat(series.map(s => s.label))));
+    dates.forEach((d, i) => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, d));
+      series.forEach(s => tr.appendChild(el('td', 'num', fmt(s.vals[i]))));
+      tbl.appendChild(tr);
+    });
+    const th = document.getElementById('table-types'); th.textContent = ''; th.appendChild(tbl);
+  }
+
+  // ---- chart 3: bars by site ---------------------------------------------
+  function buildSites() {
+    const holder = document.getElementById('chart-sites');
+    holder.textContent = '';
+    const { perSite } = slice();
+    const rows = [...perSite.entries()].sort((a, b) => b[1] - a[1]);
+    const max = Math.max(...rows.map(r => r[1]), 1);
+    const W = Math.max(holder.clientWidth || 380, 280);
+    const rowH = 34, m = { t: 4, r: 52, b: 4, l: 4 };
+    const H = m.t + m.b + rows.length * rowH;
+    const labelW = 128;
+    const iw = W - m.l - m.r - labelW;
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': 'Bar chart of flags by site' });
+    rows.forEach(([site, v], i) => {
+      const y = m.t + i * rowH + (rowH - 20) / 2;
+      const dim = state.site !== 'all' && state.site !== site;
+      const name = svgEl('text', { x: m.l, y: y + 14, 'font-size': 12.5, fill: dim ? css('--text-muted') : css('--text-secondary') });
+      name.textContent = site;
+      svg.appendChild(name);
+      const bw = Math.max(2, (v / max) * iw);
+      const r = Math.min(4, bw / 2);
+      const x0 = m.l + labelW;
+      svg.appendChild(svgEl('path', {
+        d: `M${x0},${y} L${x0 + bw - r},${y} Q${x0 + bw},${y} ${x0 + bw},${y + r} L${x0 + bw},${y + 20 - r} Q${x0 + bw},${y + 20} ${x0 + bw - r},${y + 20} L${x0},${y + 20} Z`,
+        fill: dim ? css('--series-other') : css('--seq-400'),
+        opacity: dim ? 0.55 : 1,
+      }));
+      const val = svgEl('text', { x: x0 + bw + 8, y: y + 14, 'font-size': 12, 'font-weight': 650,
+        fill: dim ? css('--text-muted') : css('--text-primary') });
+      val.textContent = fmt(v);
+      svg.appendChild(val);
+    });
+    holder.appendChild(svg);
+
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Site', 'Flags']));
+    rows.forEach(([s, v]) => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, s));
+      tr.appendChild(el('td', 'num', fmt(v)));
+      tbl.appendChild(tr);
+    });
+    const th = document.getElementById('table-sites'); th.textContent = ''; th.appendChild(tbl);
+  }
+
+  // ---- tables --------------------------------------------------------------
+  function headerRow(cols) {
+    const tr = el('tr');
+    cols.forEach((c, i) => tr.appendChild(el('th', i > 0 ? 'num' : null, c)));
+    return tr;
+  }
+  function pageCell(f) {
+    const td = el('td', 'pagecell');
+    const a = el('a', null, pagePath(f.page));
+    a.href = f.page; a.target = '_blank'; a.rel = 'noopener';
+    td.appendChild(a);
+    if (state.site === 'all') td.appendChild(el('span', 'site', f.site));
+    return td;
+  }
+  function trendCell(delta, upIsGoodWhenNegative) {
+    // for position: negative delta = moved up = good
+    const td = el('td', 'num');
+    if (delta === null || delta === undefined || delta === 0) { td.appendChild(el('span', 'trend-flat', '·')); return td; }
+    const good = upIsGoodWhenNegative ? delta < 0 : delta > 0;
+    const arrow = delta < 0 ? '▲' : '▼'; // position: smaller number = higher ranking
+    td.appendChild(el('span', good ? 'trend-good' : 'trend-bad', `${arrow} ${Math.abs(delta).toFixed(1)}`));
+    return td;
+  }
+  function emptyNote(holder, msg) {
+    holder.textContent = '';
+    holder.appendChild(el('div', 'empty', msg));
+  }
+
+  function buildOpps() {
+    const holder = document.getElementById('table-opps');
+    document.getElementById('desc-opps').textContent =
+      'Pages ranking 8–20 on ' + shortDate(DATA.latestDate) + ' — a small push gets them to page 1. Sorted by impressions.';
+    const rows = latestFlags().filter(f => f.flag === 'striking_distance')
+      .sort((a, b) => b.impressions - a.impressions).slice(0, 12);
+    if (!rows.length) return emptyNote(holder, 'No striking-distance pages today.');
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Page', 'Position', 'Impressions', 'Clicks', 'Pos vs prev']));
+    for (const f of rows) {
+      const tr = el('tr');
+      tr.appendChild(pageCell(f));
+      const pos = el('td', 'num'); pos.appendChild(el('span', 'posbadge', f.position !== null ? f.position.toFixed(1) : '—'));
+      tr.appendChild(pos);
+      tr.appendChild(el('td', 'num', fmt(Math.round(f.impressions))));
+      tr.appendChild(el('td', 'num', fmt(Math.round(f.clicks))));
+      tr.appendChild(trendCell(f.posDelta, true));
+      tbl.appendChild(tr);
+    }
+    holder.textContent = ''; holder.appendChild(tbl);
+  }
+
+  function buildAttention() {
+    const holder = document.getElementById('table-attention');
+    document.getElementById('desc-attention').textContent =
+      'High-severity flags on ' + shortDate(DATA.latestDate) + ' — worth a look this week.';
+    const rows = latestFlags().filter(f => f.severity >= 3)
+      .sort((a, b) => b.severity - a.severity || b.impressions - a.impressions).slice(0, 12);
+    if (!rows.length) return emptyNote(holder, 'Nothing urgent today — all tracked pages look stable.');
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Page', 'Flag', 'Severity']));
+    for (const f of rows) {
+      const tr = el('tr');
+      tr.appendChild(pageCell(f));
+      const flag = el('td'); flag.style.textAlign = 'right';
+      flag.appendChild(el('span', null, TYPE_LABELS[f.flag] || f.flag));
+      tr.appendChild(flag);
+      const sevTd = el('td'); sevTd.style.textAlign = 'right';
+      const sev = SEVERITY[f.severity] || SEVERITY[2];
+      const badge = el('span', 'badge');
+      const dot = el('span', 'dot'); dot.style.background = css(sev.var);
+      badge.appendChild(dot); badge.appendChild(document.createTextNode(sev.label));
+      sevTd.appendChild(badge);
+      tr.appendChild(sevTd);
+      tbl.appendChild(tr);
+    }
+    holder.textContent = ''; holder.appendChild(tbl);
+  }
+
+  function buildWins() {
+    const holder = document.getElementById('table-wins');
+    document.getElementById('desc-wins').textContent =
+      'Click surges and new pages already earning clicks on ' + shortDate(DATA.latestDate) + '.';
+    const rows = latestFlags().filter(f => f.flag === 'click_surge' || f.flag === 'new_performing')
+      .sort((a, b) => b.clicks - a.clicks).slice(0, 12);
+    if (!rows.length) return emptyNote(holder, 'No new wins flagged today.');
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Page', 'What happened', 'Clicks']));
+    for (const f of rows) {
+      const tr = el('tr');
+      tr.appendChild(pageCell(f));
+      const what = el('td'); what.style.textAlign = 'right';
+      let txt = TYPE_LABELS[f.flag];
+      if (f.flag === 'click_surge' && f.clickPct) txt = 'Clicks +' + Math.round(f.clickPct * 100) + '%';
+      what.appendChild(el('span', 'trend-good', txt));
+      tr.appendChild(what);
+      tr.appendChild(el('td', 'num', fmt(Math.round(f.clicks))));
+      tbl.appendChild(tr);
+    }
+    holder.textContent = ''; holder.appendChild(tbl);
+  }
+
+  // ---- header / footer -----------------------------------------------------
+  function buildChrome() {
+    const sub = document.getElementById('subtitle');
+    sub.textContent = '';
+    sub.appendChild(document.createTextNode(
+      `Daily SEO health across ${DATA.sites.length} sites · ${shortDate(DATA.dates[0])} – ${shortDate(DATA.latestDate)} · `));
+    const a = el('a', null, 'source sheet');
+    a.href = DATA.sheetUrl; a.target = '_blank'; a.rel = 'noopener';
+    sub.appendChild(a);
+    const foot = document.getElementById('footer');
+    foot.textContent = '';
+    foot.appendChild(document.createTextNode(
+      'Data: “SEO Rapporting” Google Sheet (Snapshots tab), embedded ' + DATA.generatedAt + '. '));
+    const fa = el('a', null, 'Open the sheet');
+    fa.href = DATA.sheetUrl; fa.target = '_blank'; fa.rel = 'noopener';
+    foot.appendChild(fa);
+  }
+
+  function render() {
+    buildFilters();
+    buildKpis();
+    buildTrend();
+    buildTypes();
+    buildSites();
+    buildOpps();
+    buildAttention();
+    buildWins();
+  }
+
+  buildChrome();
+  render();
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+})();
+</script>
+</body>
+</html>
