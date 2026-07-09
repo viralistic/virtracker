@@ -264,6 +264,21 @@
   .tile.good .value, .tile.good .toprow { color: var(--delta-good); }
   .tile.warn { background: color-mix(in srgb, var(--status-critical) 9%, var(--card)); border-color: color-mix(in srgb, var(--status-critical) 40%, var(--border)); }
   .tile.warn .value, .tile.warn .toprow { color: var(--status-critical); }
+  /* day / week / all-time summary grid */
+  .sum-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 720px) { .sum-grid { grid-template-columns: 1fr; } }
+  .sum-col { border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; background: color-mix(in srgb, var(--accent) 45%, var(--card)); }
+  .sum-col .cad { font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-secondary); }
+  .sum-col .rng { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+  .sum-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 12px; }
+  .sum-row .k { color: var(--text-secondary); font-size: 12.5px; padding-bottom: 3px; }
+  .sum-row .rt { text-align: right; }
+  .sum-row .v { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .sum-row .d { font-size: 11.5px; margin-top: 1px; }
+  .rperf-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .rperf-charts { grid-template-columns: 1fr; } }
+  .rperf-charts h3 { font-size: 13px; font-weight: 650; margin: 0 0 2px; }
+  .rperf-charts .sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px; }
   .tile .delta { font-size: 12.5px; margin-top: 2px; color: var(--text-muted); }
   .tile .delta .up-bad, .tile .delta .down-bad { color: var(--delta-bad); font-weight: 600; }
   .tile .delta .up-good, .tile .delta .down-good { color: var(--delta-good); font-weight: 600; }
@@ -404,15 +419,19 @@
     /* a client report never shows other clients: hide the cross-site comparison when scoped */
     body.client-scoped #card-sites { display: none !important; }
     .report-only { display: block !important; }
+    /* the report shows both metrics via #report-performance; drop the toggle chart */
+    #card-traffic { display: none !important; }
     /* @page margin is 0 so the dark bleeds to the paper edge; content gets its own inset */
-    #kpis, #report-priorities, .view, #report-glossary { padding-left: 12mm; padding-right: 12mm; }
+    #kpis, #report-priorities, #report-performance, .view, #report-glossary { padding-left: 12mm; padding-right: 12mm; }
     #kpis { margin-top: 12mm; }
     .report-cover {
       display: block !important; height: 100vh; padding: 0 !important; margin: 0 !important;
       break-after: page; break-inside: avoid;
     }
     #report-closing { break-before: page; break-after: auto; }
+    #report-performance { break-before: page; }
     #report-priorities, #report-glossary { break-inside: avoid; }
+    .rperf-charts, #rperf-weekly { break-inside: avoid; }
     .card, button.tile { break-inside: avoid; box-shadow: none; }
     .content { max-width: none; padding: 0; }
     main { margin: 0 !important; }
@@ -463,6 +482,8 @@
 
       <div class="card report-only" id="report-priorities"></div>
 
+      <div class="card report-only" id="report-performance"></div>
+
       <!-- HOME -->
       <section class="view" id="view-home" aria-label="Home">
         <div class="hero" id="hero"></div>
@@ -470,6 +491,18 @@
 
       <!-- TRAFFIC -->
       <section class="view" id="view-traffic" aria-label="Traffic">
+        <div class="card" id="card-summary">
+          <div class="cardhead">
+            <div class="headtxt">
+              <h2>Summary · day, week &amp; all-time</h2>
+              <div class="desc" id="desc-summary"></div>
+            </div>
+            <div class="cardtools">
+              <button class="btn" data-copy="summary" title="Copy this summary as Markdown"><span class="ic"></span>Copy</button>
+            </div>
+          </div>
+          <div class="sum-grid" id="summary-grid"></div>
+        </div>
         <div class="card" id="card-traffic">
           <div class="cardhead">
             <div class="headtxt">
@@ -789,6 +822,42 @@
     }
     rows.sort((a, b) => b.clicks - a.clicks || b.imprs - a.imprs);
     return rows;
+  }
+
+  // Full-period per-day clicks/impressions (site-scoped) + day/week/all-time roll-ups.
+  function perfSummary() {
+    const n = DATA.dates.length;
+    const clicks = new Array(n).fill(0), imprs = new Array(n).fill(0);
+    for (const [di, pi, c, im] of DATA.pageDays) {
+      if (state.site !== 'all' && PAGE_SITE[pi] !== state.site) continue;
+      clicks[di] += c; imprs[di] += im;
+    }
+    const sum = (a, s, e) => a.slice(Math.max(0, s), e).reduce((x, y) => x + y, 0);
+    return {
+      n, dates: DATA.dates, clicks, imprs,
+      day: { c: clicks[n - 1], i: imprs[n - 1],
+             pc: n > 1 ? clicks[n - 2] : null, pi: n > 1 ? imprs[n - 2] : null },
+      week: { c: sum(clicks, n - 7, n), i: sum(imprs, n - 7, n),
+              pc: sum(clicks, n - 14, n - 7), pi: sum(imprs, n - 14, n - 7),
+              hasPrev: n >= 14 },
+      all: { c: sum(clicks, 0, n), i: sum(imprs, 0, n), days: n },
+    };
+  }
+  // 7-day buckets aligned to the latest date, newest first. The oldest bucket
+  // may be a partial week (period length rarely divides by 7) — its `days` count
+  // lets callers flag it and skip week-over-week deltas against it.
+  function weekBuckets(maxWeeks) {
+    const s = perfSummary();
+    const out = [];
+    for (let end = s.n; end > 0 && (!maxWeeks || out.length < maxWeeks); end -= 7) {
+      const start = Math.max(0, end - 7);
+      out.push({
+        start: DATA.dates[start], end: DATA.dates[end - 1], days: end - start,
+        clicks: s.clicks.slice(start, end).reduce((a, b) => a + b, 0),
+        imprs: s.imprs.slice(start, end).reduce((a, b) => a + b, 0),
+      });
+    }
+    return out;
   }
 
   // ---- top 3 moves (home) ---------------------------------------------------
@@ -1269,6 +1338,115 @@
       root.appendChild(b);
     }
   }
+  // ---- summary: day / week / all-time -------------------------------------
+  function deltaEl(diff, suffix) {
+    const d = el('div', 'd');
+    if (diff === null || diff === undefined) { d.appendChild(el('span', 'trend-flat', '—')); return d; }
+    const cls = diff > 0 ? 'trend-good' : diff < 0 ? 'trend-bad' : 'trend-flat';
+    const arrow = diff > 0 ? '▲ +' : diff < 0 ? '▼ ' : '· ';
+    d.appendChild(el('span', cls, arrow + fmt(Math.abs(diff))));
+    d.appendChild(document.createTextNode(' ' + suffix));
+    return d;
+  }
+  function sumCol(cad, rng, clicks, imprs, dClicks, dImpr, deltaSuffix, footNote) {
+    const col = el('div', 'sum-col');
+    col.appendChild(el('div', 'cad', cad));
+    col.appendChild(el('div', 'rng', rng));
+    const mk = (label, val, diff) => {
+      const row = el('div', 'sum-row');
+      row.appendChild(el('div', 'k', label));
+      const rt = el('div', 'rt');
+      rt.appendChild(el('div', 'v', fmt(val)));
+      rt.appendChild(footNote ? el('div', 'd', footNote(val)) : deltaEl(diff, deltaSuffix));
+      row.appendChild(rt);
+      col.appendChild(row);
+    };
+    mk('Clicks', clicks, dClicks);
+    mk('Impressions', imprs, dImpr);
+    return col;
+  }
+  function buildSummary() {
+    const grid = document.getElementById('summary-grid');
+    grid.textContent = '';
+    document.getElementById('desc-summary').textContent =
+      'Clicks and impressions at three horizons' +
+      (state.site === 'all' ? ' across all projects' : ' on ' + state.site) +
+      '. Coverage grows as more pages are tracked, so all-time totals reflect the pages followed so far.';
+    const s = perfSummary();
+    grid.appendChild(sumCol('Latest day', shortDate(DATA.latestDate),
+      s.day.c, s.day.i,
+      s.day.pc === null ? null : s.day.c - s.day.pc,
+      s.day.pi === null ? null : s.day.i - s.day.pi, 'vs prev day'));
+    grid.appendChild(sumCol('This week', shortDate(DATA.dates[Math.max(0, s.n - 7)]) + ' – ' + shortDate(DATA.latestDate),
+      s.week.c, s.week.i,
+      s.week.hasPrev ? s.week.c - s.week.pc : null,
+      s.week.hasPrev ? s.week.i - s.week.pi : null, 'vs prev week'));
+    grid.appendChild(sumCol('All-time', s.all.days + ' days',
+      s.all.c, s.all.i, null, null, null,
+      (v) => 'avg ' + fmt(Math.round(v / s.all.days)) + ' / day'));
+  }
+
+  // ---- report performance section (print): both graphs + weekly breakdown --
+  function buildReportPerformance() {
+    const card = document.getElementById('report-performance');
+    card.textContent = '';
+    const s = perfSummary();
+    const head = el('div', 'cardhead');
+    const ht = el('div', 'headtxt');
+    ht.appendChild(el('h2', null, 'Clicks & impressions over time'));
+    ht.appendChild(el('div', 'desc',
+      'Daily clicks and impressions over the full tracking period (' +
+      shortDate(DATA.dates[0]) + ' – ' + shortDate(DATA.latestDate) + ', ' + s.n + ' days)' +
+      (state.site === 'all' ? '' : ' on ' + state.site) + '.'));
+    head.appendChild(ht);
+    card.appendChild(head);
+
+    const charts = el('div', 'rperf-charts');
+    const mkChart = (title, sub, holderId, vals, tipName) => {
+      const box = el('div');
+      box.appendChild(el('h3', null, title));
+      box.appendChild(el('div', 'sub', sub));
+      const holder = el('div'); holder.id = holderId;
+      box.appendChild(holder);
+      charts.appendChild(box);
+      lineChart(holderId, 'report-performance', s.dates, vals, {
+        ariaLabel: title, wideAxis: true,
+        fillTip: (tip, i) => tipRow(tip, 'var(--series-1)', tipName, vals[i]),
+      });
+    };
+    card.appendChild(charts);
+    mkChart('Clicks', 'Total ' + fmt(s.all.c) + ' over the period', 'rperf-clicks', s.clicks, 'Clicks');
+    mkChart('Impressions', 'Total ' + fmt(s.all.i) + ' over the period', 'rperf-impr', s.imprs, 'Impressions');
+
+    // weekly breakdown table
+    const weeks = weekBuckets(8);
+    const wrap = el('div'); wrap.id = 'rperf-weekly';
+    wrap.appendChild(el('h3', null, 'Weekly breakdown'));
+    wrap.style.marginTop = '14px';
+    const tbl = el('table');
+    tbl.appendChild(headerRow(['Week', { l: 'Clicks', t: TERMS.clicks }, { l: 'Impressions', t: TERMS.impressions }, 'Δ clicks vs prev week']));
+    weeks.forEach((w, idx) => {
+      const tr = el('tr');
+      const label = shortDate(w.start) + ' – ' + shortDate(w.end) + (w.days < 7 ? ' (' + w.days + ' days)' : '');
+      tr.appendChild(el('td', null, label));
+      tr.appendChild(el('td', 'num', fmt(w.clicks)));
+      tr.appendChild(el('td', 'num', fmt(w.imprs)));
+      const prev = weeks[idx + 1];
+      const dc = el('td', 'num');
+      // never diff a full week against a shorter (partial) one — the arrow would be an artefact
+      if (!prev || prev.days < 7 || w.days < 7) dc.appendChild(el('span', 'trend-flat', '—'));
+      else {
+        const diff = w.clicks - prev.clicks;
+        dc.appendChild(el('span', diff > 0 ? 'trend-good' : diff < 0 ? 'trend-bad' : 'trend-flat',
+          (diff > 0 ? '▲ +' : diff < 0 ? '▼ ' : '· ') + fmt(Math.abs(diff))));
+      }
+      tr.appendChild(dc);
+      tbl.appendChild(tr);
+    });
+    wrap.appendChild(tbl);
+    card.appendChild(wrap);
+  }
+
   function buildTraffic() {
     buildMetricToggle();
     const tr = trafficSeries();
@@ -1747,6 +1925,33 @@
               Math.round(f.clicks)]))
           : '_No new wins today._');
     },
+    summary() {
+      const s = perfSummary();
+      const scope = state.site === 'all' ? 'all ' + DATA.sites.length + ' projects' : state.site;
+      const wd = (a, b) => (a - b >= 0 ? '+' : '') + fmt(a - b);
+      return '## Clicks & impressions — day / week / all-time (' + scope + ')\n'
+        + 'Traffic on tracked pages; coverage grows over time, so all-time totals reflect the pages followed so far.\n\n'
+        + mdTable(['Horizon', 'Clicks', 'Impressions'], [
+            ['Latest day (' + DATA.latestDate + ')',
+              fmt(s.day.c) + (s.day.pc !== null ? ' (' + wd(s.day.c, s.day.pc) + ' vs prev day)' : ''),
+              fmt(s.day.i) + (s.day.pi !== null ? ' (' + wd(s.day.i, s.day.pi) + ' vs prev day)' : '')],
+            ['This week (last 7 days)',
+              fmt(s.week.c) + (s.week.hasPrev ? ' (' + wd(s.week.c, s.week.pc) + ' vs prev week)' : ''),
+              fmt(s.week.i) + (s.week.hasPrev ? ' (' + wd(s.week.i, s.week.pi) + ' vs prev week)' : '')],
+            ['All-time (' + s.all.days + ' days)',
+              fmt(s.all.c) + ' (avg ' + fmt(Math.round(s.all.c / s.all.days)) + '/day)',
+              fmt(s.all.i) + ' (avg ' + fmt(Math.round(s.all.i / s.all.days)) + '/day)'],
+          ]);
+    },
+    weekly() {
+      // full tracked history (not the period filter), so weekly totals reconcile with all-time
+      const weeks = weekBuckets();
+      const scope = 'Scope: ' + (state.site === 'all' ? 'all ' + DATA.sites.length + ' sites' : state.site)
+        + ' · full tracked history (' + DATA.dates[0] + ' → ' + DATA.latestDate + ', ' + DATA.dates.length + ' scan days)';
+      return '## Weekly performance\n' + scope + '\n\n'
+        + mdTable(['Week', 'Clicks', 'Impressions'],
+            weeks.map(w => [w.start + ' – ' + w.end + (w.days < 7 ? ' (' + w.days + ' days)' : ''), w.clicks, w.imprs]));
+    },
     trend() {
       const { dates, perDay } = slice();
       const vals = dates.map(d => Object.values(perDay.get(d) || {}).reduce((a, b) => a + b, 0));
@@ -1795,6 +2000,7 @@
       + 'Source: "SEO Rapporting" Google Sheet (Snapshots tab), data embedded ' + DATA.generatedAt + '.\n\n'
       + mdMoves() + '\n\n'
       + mdKpis() + '\n\n'
+      + MD.summary() + '\n\n'
       + MD.pages() + '\n\n'
       + MD.opps() + '\n\n'
       + MD.attention() + '\n\n'
@@ -1806,7 +2012,7 @@
   }
   function fullReport() {
     // the cross-site comparison only belongs in the all-projects overview report
-    return aiBrief() + '\n\n' + MD.traffic() + '\n\n' + MD.trend() + '\n\n'
+    return aiBrief() + '\n\n' + MD.weekly() + '\n\n' + MD.traffic() + '\n\n' + MD.trend() + '\n\n'
       + MD.types() + (state.site === 'all' ? '\n\n' + MD.sites() : '') + '\n';
   }
   function latestFlagsCsv(rows) {
@@ -1991,8 +2197,10 @@
     buildFilters();
     buildClients();
     buildReportPages();
+    buildReportPerformance();
     buildKpis();
     buildHome();
+    buildSummary();
     buildTraffic();
     buildPages();
     buildTrend();

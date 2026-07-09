@@ -17,9 +17,11 @@ lucide icons, light & dark mode:
 
 - **Home** — a hero that names the **top 3 highest-impact moves for today**
   (best striking-distance push, worst regression to rescue, biggest CTR fix)
-- **Traffic** — clicks & impressions KPIs, a trend chart with a
-  Clicks/Impressions toggle, and a **Main pages** overview: your busiest pages
-  with a per-page trend sparkline, 7-day click delta, CTR and position
+- **Traffic** — a **day / week / all-time summary** (clicks & impressions for
+  the latest day, this week vs last week, and all-time totals), clicks &
+  impressions KPIs, a trend chart with a Clicks/Impressions toggle, and a
+  **Main pages** overview: your busiest pages with a per-page trend sparkline,
+  7-day click delta, CTR and position
 - **Flags** — flags per day, breakdown by flag type, and flags by site
 - **Opportunities** — pages at position 8–20 that are almost on page 1
 - **Needs attention** — high-severity flags from the latest scan
@@ -35,11 +37,12 @@ lucide icons, light & dark mode:
 
 The **PDF** button prints a dark `#0A0A0B` (edge to edge), Viralistic-branded
 report: your **actual Performance Raport cover** as page 1 (with the client
-name + period overlaid), headline tiles, the top-3 priorities, traffic, main
-pages, opportunities, wins, a glossary that explains CTR/position/etc., and
-your **actual "Any Questions?" closing page** last. It contains **only the
-selected client's data** (the cross-site comparison only appears on
-All projects).
+name + period overlaid), headline tiles, the top-3 priorities, a **performance
+page** (clicks graph + impressions graph over the full period, plus a weekly
+breakdown table), day/week/all-time summary, main pages, opportunities, wins,
+a glossary that explains CTR/position/etc., and your **actual "Any Questions?"
+closing page** last. It contains **only the selected client's data** (the
+cross-site comparison only appears on All projects).
 
 The two cover pages are the brand PDFs embedded as images. To swap them for
 updated versions:
