@@ -11,16 +11,22 @@ The data is embedded in the file, so it also works offline and can be hosted
 anywhere (GitHub Pages works out of the box). Light and dark mode both
 supported.
 
-What you get:
+What you get — a dashboard app with a collapsible sidebar (Home, Traffic,
+Flags, Opportunities, Needs attention, Wins) in shadcn-style design with
+lucide icons, light & dark mode:
 
-- **Traffic first** — clicks & impressions KPIs, a traffic trend chart with a
+- **Home** — a hero that names the **top 3 highest-impact moves for today**
+  (best striking-distance push, worst regression to rescue, biggest CTR fix)
+- **Traffic** — clicks & impressions KPIs, a trend chart with a
   Clicks/Impressions toggle, and a **Main pages** overview: your busiest pages
   with a per-page trend sparkline, 7-day click delta, CTR and position
-- **KPI tiles are clickable** — each one jumps to its section
-- **Flags per day** + **What kind of flags?** — trend and daily breakdown by flag type
-- **Striking-distance opportunities** — pages at position 8–20 that are almost on page 1
+- **Flags** — flags per day, breakdown by flag type, and flags by site
+- **Opportunities** — pages at position 8–20 that are almost on page 1
 - **Needs attention** — high-severity flags from the latest scan
-- **Recent wins** — click surges and new pages that are earning clicks
+- **Wins** — click surges and new pages that are earning clicks
+- **KPI tiles are clickable** — each one opens its section; the sidebar shows
+  live counts as badges
+- **＋ New project** (bottom left) — opens the n8n project form in a modal
 - Filters for **period** (14/30/all days) and **site** — everything re-scopes together
 
 ## Exporting (great for AI)
