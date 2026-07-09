@@ -1,2 +1,7 @@
 .claude/
 .DS_Store
+__pycache__/
+# Google service-account keys — never commit credentials
+*service-account*.json
+*-key.json
+key.json
