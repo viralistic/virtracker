@@ -33,15 +33,25 @@ lucide icons, light & dark mode:
 
 ## Client-facing PDF report
 
-The **PDF** button prints a dark (#0A0A0B), Viralistic-branded report: front
-page ("Performance Raport" + client name + period), headline tiles, the top-3
-priorities, traffic, main pages, opportunities, wins, a glossary that explains
-CTR/position/etc., and an "Any questions?" closing page. It contains **only
-the selected client's data** (the cross-site comparison only appears on
+The **PDF** button prints a dark `#0A0A0B` (edge to edge), Viralistic-branded
+report: your **actual Performance Raport cover** as page 1 (with the client
+name + period overlaid), headline tiles, the top-3 priorities, traffic, main
+pages, opportunities, wins, a glossary that explains CTR/position/etc., and
+your **actual "Any Questions?" closing page** last. It contains **only the
+selected client's data** (the cross-site comparison only appears on
 All projects).
 
+The two cover pages are the brand PDFs embedded as images. To swap them for
+updated versions:
+
+```sh
+pdftoppm -jpeg -r 150 -f 1 -l 1 "Front page SEO Rapport.pdf" front
+pdftoppm -jpeg -r 150 -f 1 -l 1 "Closing Page SEO rapport.pdf" closing
+python3 scripts/embed_report_art.py front-1.jpg closing-1.jpg
+```
+
 Print tips: in the print dialog, turn **off** "Headers and footers" and leave
-**Background graphics on**.
+**Background graphics on** (that's what fills the page with the dark color).
 
 ## Exporting (great for AI)
 
