@@ -25,9 +25,23 @@ lucide icons, light & dark mode:
 - **Needs attention** — high-severity flags from the latest scan
 - **Wins** — click surges and new pages that are earning clicks
 - **KPI tiles are clickable** — each one opens its section; the sidebar shows
-  live counts as badges
+  live counts as badges. Tiles turn green when performing, red when action is needed
+- **Clients live in the sidebar** — pick a client (or All projects) and every
+  number, chart, table and export re-scopes to it
 - **＋ New project** (bottom left) — opens the n8n project form in a modal
-- Filters for **period** (14/30/all days) and **site** — everything re-scopes together
+- A **period** filter (14/30/all days) in the top bar
+
+## Client-facing PDF report
+
+The **PDF** button prints a dark (#0A0A0B), Viralistic-branded report: front
+page ("Performance Raport" + client name + period), headline tiles, the top-3
+priorities, traffic, main pages, opportunities, wins, a glossary that explains
+CTR/position/etc., and an "Any questions?" closing page. It contains **only
+the selected client's data** (the cross-site comparison only appears on
+All projects).
+
+Print tips: in the print dialog, turn **off** "Headers and footers" and leave
+**Background graphics on**.
 
 ## Exporting (great for AI)
 

@@ -44,7 +44,7 @@
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --background: #09090b;
+      --background: #0A0A0B;
       --card: #141417;
       --surface-1: #141417;
       --text-primary: #fafafa;
@@ -126,6 +126,23 @@
     background: var(--accent); color: var(--text-muted); border: 1px solid var(--border);
   }
   .nav-badge.hot { background: var(--status-critical); color: #fff; border-color: transparent; }
+  .sb-clients { padding: 10px 8px 8px; border-top: 1px solid var(--border); }
+  .sb-heading { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); padding: 0 10px 6px; white-space: nowrap; }
+  #clients-nav { display: flex; flex-direction: column; gap: 2px; }
+  .client-item {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    border: none; background: none; cursor: pointer; text-align: left;
+    padding: 7px 10px; border-radius: 8px; color: var(--text-secondary);
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+  }
+  .client-item .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .client-item:hover { background: var(--accent); color: var(--text-primary); }
+  .client-item[aria-current="true"] { background: var(--accent); color: var(--text-primary); font-weight: 600; }
+  .client-item:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+  .client-item .cdot { width: 10px; height: 10px; border-radius: 4px; flex: none; }
+  .sidebar.collapsed .sb-heading { display: none; }
+  .sidebar.collapsed .client-item { justify-content: center; padding: 8px 0; }
+  .sidebar.collapsed .client-item .lbl { display: none; }
   .sb-bottom { padding: 10px 8px 12px; border-top: 1px solid var(--border); }
   .new-project {
     display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
@@ -242,7 +259,11 @@
   button.tile:hover { border-color: var(--baseline); }
   .tile .toprow { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-muted); }
   .tile .label { color: var(--text-secondary); font-size: 13px; }
-  .tile .value { font-size: 26px; font-weight: 650; margin-top: 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .tile .value { font-size: 32px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .tile.good { background: color-mix(in srgb, var(--status-good) 9%, var(--card)); border-color: color-mix(in srgb, var(--status-good) 40%, var(--border)); }
+  .tile.good .value, .tile.good .toprow { color: var(--delta-good); }
+  .tile.warn { background: color-mix(in srgb, var(--status-critical) 9%, var(--card)); border-color: color-mix(in srgb, var(--status-critical) 40%, var(--border)); }
+  .tile.warn .value, .tile.warn .toprow { color: var(--status-critical); }
   .tile .delta { font-size: 12.5px; margin-top: 2px; color: var(--text-muted); }
   .tile .delta .up-bad, .tile .delta .down-bad { color: var(--delta-bad); font-weight: 600; }
   .tile .delta .up-good, .tile .delta .down-good { color: var(--delta-good); font-weight: 600; }
@@ -336,26 +357,74 @@
   .modal-close:hover { background: var(--accent); color: var(--text-primary); }
   .modal iframe { border: 0; width: 100%; height: min(68dvh, 640px); background: #fff; }
 
-  /* ---- print -------------------------------------------------------------- */
+  /* ---- branded report (print) --------------------------------------------- */
+  .report-only { display: none !important; }
+  .report-page {
+    position: relative; overflow: hidden;
+    background: #0A0A0B; color: #fafafa;
+    border: 1px solid rgba(255,255,255,.16);
+    display: flex; flex-direction: column;
+  }
+  .rp-brand {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 26px; font-size: 12px; letter-spacing: .1em;
+    color: #d4d4d8; border-bottom: 1px solid rgba(255,255,255,.10);
+    position: relative; z-index: 2;
+  }
+  .rp-brand .lg { font-weight: 700; letter-spacing: .18em; color: #fafafa; }
+  .rp-brand .lg small { font-weight: 400; letter-spacing: .04em; color: #85858f; margin-left: 8px; }
+  .rp-brand .tag { color: #85858f; letter-spacing: .18em; }
+  .rp-body { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 30px; }
+  #report-front .rp-body { justify-content: flex-start; padding-top: 16vh; }
+  #report-closing .rp-body { justify-content: flex-start; padding-top: 20vh; }
+  .rp-title {
+    font-family: "Avenir Next", "Poppins", "Century Gothic", "Futura", sans-serif;
+    font-weight: 500; font-size: 58px; line-height: 1.1; letter-spacing: .01em; margin: 0;
+  }
+  .rp-title .ghost { display: block; color: #55555e; }
+  .rp-client { margin-top: 26px; font-size: 22px; font-weight: 600; color: #fafafa; }
+  .rp-meta { margin-top: 8px; font-size: 13px; color: #9b9ba4; }
+  .rp-contact { margin-top: 26px; font-size: 15px; color: #d4d4d8; letter-spacing: .04em; }
+  .waves { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 52%; z-index: 1; }
+  .gloss { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 28px; margin: 4px 0 0; }
+  .gloss dt { font-weight: 650; font-size: 13px; }
+  .gloss dd { margin: 2px 0 0; color: var(--text-muted); font-size: 12.5px; }
+  .pri-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .pri-list li { display: flex; gap: 12px; align-items: baseline; }
+  .pri-list .pn { font-weight: 700; color: var(--series-1); flex: none; }
+  .pri-list .pt { font-weight: 650; font-size: 15px; }
+  .pri-list .ps { color: var(--text-muted); font-size: 12.5px; margin-top: 2px; }
+
   @media print {
+    /* client-facing dark document — background #0A0A0B, matching the brand deck */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     :root {
-      --background: #ffffff; --card: #ffffff; --surface-1: #ffffff;
-      --text-primary: #09090b; --text-secondary: #3f3f46; --text-muted: #71717a;
-      --border: #e4e4e7; --accent: #f4f4f5; --grid: #ececee; --baseline: #d4d4d8;
-      --series-1: #2a78d6; --series-2: #1baf7a; --series-3: #eda100;
-      --series-4: #008300; --series-5: #4a3aa7; --series-other: #b3b1a9;
-      --seq-250: #86b6ef; --seq-400: #3987e5; --seq-550: #1c5cab;
-      --delta-good: #006300; --delta-bad: #d03b3b;
+      --background: #0A0A0B; --card: #141419; --surface-1: #141419;
+      --text-primary: #fafafa; --text-secondary: #d4d4d8; --text-muted: #9b9ba4;
+      --border: #26262b; --accent: #1d1d21; --grid: #202024; --baseline: #3f3f46;
+      --series-1: #3987e5; --series-2: #199e70; --series-3: #c98500;
+      --series-4: #008300; --series-5: #9085e9; --series-other: #55544f;
+      --seq-250: #184f95; --seq-400: #2a78d6; --seq-550: #86b6ef;
+      --delta-good: #0ca30c; --delta-bad: #e05252;
     }
-    .sidebar, .topbar, .cardtools, details.dtable, .tooltip, .hero, .overlay { display: none !important; }
+    html, body { background: #0A0A0B !important; }
+    .sidebar, .topbar, .cardtools, details.dtable, .tooltip, .hero, .overlay, footer { display: none !important; }
     .view { display: block !important; animation: none !important; }
     #view-home { display: none !important; }
-    .kpis { display: grid !important; }
+    .kpis { display: grid !important; grid-template-columns: repeat(3, 1fr); }
+    /* a client report never shows other clients: hide the cross-site comparison when scoped */
+    body.client-scoped #card-sites { display: none !important; }
+    .report-only { display: block !important; }
+    .report-page { display: flex !important; height: 100vh; break-after: page; }
+    #report-closing { break-before: page; break-after: auto; }
+    #report-priorities, #report-glossary { break-inside: avoid; }
     .card, button.tile { break-inside: avoid; box-shadow: none; }
     .content { max-width: none; padding: 0; }
     main { margin: 0 !important; }
+    td a { border-bottom: none; }
+    td a .ext { display: none; }
   }
-  @page { margin: 14mm; }
+  @page { margin: 12mm; }
 </style>
 </head>
 <body>
@@ -369,6 +438,10 @@
       <button class="sb-collapse" id="sb-collapse" title="Collapse menu" aria-label="Collapse menu"></button>
     </div>
     <nav id="nav" aria-label="Main"></nav>
+    <div class="sb-clients">
+      <div class="sb-heading">Clients</div>
+      <div id="clients-nav" role="group" aria-label="Clients"></div>
+    </div>
     <div class="sb-bottom">
       <button class="new-project" id="new-project" title="Add a new project">
         <span class="ic"></span><span class="lbl">New project</span>
@@ -379,7 +452,6 @@
   <main>
     <div class="topbar" id="topbar">
       <div class="pillgroup" id="filters-period"></div>
-      <div class="pillgroup" id="filters-site"></div>
       <div class="actions" id="actions">
         <button class="btn" id="act-brief" title="Copy a Markdown summary of everything — paste it straight into an AI chat"><span class="ic"></span>Copy AI brief</button>
         <button class="btn" id="act-report" title="Download the full report as a Markdown file"><span class="ic"></span>Report .md</button>
@@ -389,7 +461,11 @@
     </div>
 
     <div class="content">
+      <div class="report-page report-only" id="report-front"></div>
+
       <div class="kpis" id="kpis"></div>
+
+      <div class="card report-only" id="report-priorities"></div>
 
       <!-- HOME -->
       <section class="view" id="view-home" aria-label="Home">
@@ -452,7 +528,7 @@
             <div id="chart-types"></div>
             <details class="dtable"><summary>Data table</summary><div id="table-types"></div></details>
           </div>
-          <div class="card">
+          <div class="card" id="card-sites">
             <div class="cardhead">
               <div class="headtxt">
                 <h2>Flags by site</h2>
@@ -515,6 +591,9 @@
       </section>
 
       <footer id="footer"></footer>
+
+      <div class="card report-only" id="report-glossary"></div>
+      <div class="report-page report-only" id="report-closing"></div>
     </div>
   </main>
 </div>
@@ -588,6 +667,7 @@
     zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
     pointer: '<path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/>',
     eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   };
   function icon(name, size = 16) {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -971,8 +1051,31 @@
       { value: 30, label: '30 days' },
       { value: 'all', label: 'All (' + DATA.dates.length + ')' },
     ], state.range, v => { state.range = v; });
-    mk('filters-site', 'Site', [{ value: 'all', label: 'All sites' }]
-      .concat(DATA.sites.map(s => ({ value: s, label: s }))), state.site, v => { state.site = v; });
+  }
+
+  // ---- clients (sidebar) ----------------------------------------------------
+  function buildClients() {
+    const root = document.getElementById('clients-nav');
+    root.textContent = '';
+    const mkItem = (value, label, dotColor) => {
+      const b = el('button', 'client-item');
+      b.dataset.key = 'Site:' + value;
+      b.title = label;
+      if (dotColor) {
+        const d = el('span', 'cdot');
+        d.style.background = dotColor;
+        b.appendChild(d);
+      } else {
+        b.appendChild(icon('grid', 14));
+      }
+      b.appendChild(el('span', 'lbl', label));
+      if (value === state.site) b.setAttribute('aria-current', 'true');
+      b.addEventListener('click', () => { state.site = value; render(); });
+      root.appendChild(b);
+    };
+    mkItem('all', 'All projects', null);
+    DATA.sites.forEach((s, i) =>
+      mkItem(s, s, i < SERIES_VARS.length ? `var(${SERIES_VARS[i]})` : 'var(--series-other)'));
   }
 
   // ---- KPI tiles ----------------------------------------------------------
@@ -1003,12 +1106,15 @@
       { label: 'Striking distance', value: lf.filter(f => f.flag === 'striking_distance').length,
         note: 'position 8–20 · almost page 1', view: 'opps', icon: 'target' },
       { label: 'Needs attention', value: lf.filter(f => f.severity >= 3).length,
-        note: 'severity 3+ today', view: 'attention', icon: 'alert' },
+        note: 'severity 3+ today', view: 'attention', icon: 'alert', warnWhenPositive: true },
       { label: 'New & performing', value: lf.filter(f => f.flag === 'new_performing' || f.flag === 'click_surge').length,
-        note: 'incl. click surges', view: 'wins', icon: 'trophy' },
+        note: 'incl. click surges', view: 'wins', icon: 'trophy', goodWhenPositive: true },
     ];
     for (const t of tiles) {
-      const tile = el('button', 'tile');
+      const status = t.warnWhenPositive && t.value > 0 ? ' warn'
+        : (t.goodWhenPositive && t.value > 0) || (t.delta && !t.delta.upIsBad && t.delta.diff > 0) ? ' good'
+        : '';
+      const tile = el('button', 'tile' + status);
       tile.type = 'button';
       let extra = '';
       if (t.delta) {
@@ -1244,7 +1350,8 @@
       + capNote(all.length, rows.length);
     if (!rows.length) return emptyNote(holder, 'No page traffic recorded on the latest scan.');
     const tbl = el('table');
-    tbl.appendChild(headerRow(['Page', 'Trend', 'Clicks', 'Δ 7 days', 'Impressions', 'CTR', 'Position']));
+    tbl.appendChild(headerRow(['Page', 'Trend', { l: 'Clicks', t: TERMS.clicks }, 'Δ 7 days',
+      { l: 'Impressions', t: TERMS.impressions }, { l: 'CTR', t: TERMS.ctr }, { l: 'Position', t: TERMS.position }]));
     for (const p of rows) {
       const tr = el('tr');
       tr.appendChild(pageCell(p));
@@ -1443,9 +1550,25 @@
   // ---- tables --------------------------------------------------------------
   function headerRow(cols) {
     const tr = el('tr');
-    cols.forEach((c, i) => tr.appendChild(el('th', i > 0 ? 'num' : null, c)));
+    cols.forEach((c, i) => {
+      const label = typeof c === 'string' ? c : c.l;
+      const th = el('th', i > 0 ? 'num' : null, label);
+      if (typeof c === 'object' && c.t) {
+        th.title = c.t;
+        th.style.cursor = 'help';
+        th.style.textDecoration = 'underline dotted';
+        th.style.textUnderlineOffset = '3px';
+      }
+      tr.appendChild(th);
+    });
     return tr;
   }
+  const TERMS = {
+    clicks: 'Times someone clicked through to the site from Google search results.',
+    impressions: 'How often a page appeared in Google search results.',
+    ctr: 'Click-through rate: clicks ÷ impressions — how often an appearance in Google turns into a visit.',
+    position: 'Average Google ranking — lower is better; 1–10 is page 1.',
+  };
   function pageCell(f) {
     const td = el('td', 'pagecell');
     const a = el('a', null, pagePath(f.page));
@@ -1484,7 +1607,8 @@
       + capNote(all.length, rows.length);
     if (!rows.length) return emptyNote(holder, 'No striking-distance pages today.');
     const tbl = el('table');
-    tbl.appendChild(headerRow(['Page', 'Position', 'Impressions', 'Clicks', 'Pos vs prev']));
+    tbl.appendChild(headerRow(['Page', { l: 'Position', t: TERMS.position },
+      { l: 'Impressions', t: TERMS.impressions }, { l: 'Clicks', t: TERMS.clicks }, 'Pos vs prev']));
     for (const f of rows) {
       const tr = el('tr');
       tr.appendChild(pageCell(f));
@@ -1685,8 +1809,9 @@
       + '- Please suggest concrete next actions per page (content, internal links, titles/meta, technical), starting with "Needs attention" and the striking-distance list.';
   }
   function fullReport() {
+    // the cross-site comparison only belongs in the all-projects overview report
     return aiBrief() + '\n\n' + MD.traffic() + '\n\n' + MD.trend() + '\n\n'
-      + MD.types() + '\n\n' + MD.sites() + '\n';
+      + MD.types() + (state.site === 'all' ? '\n\n' + MD.sites() : '') + '\n';
   }
   function latestFlagsCsv(rows) {
     // clickPct/imprPct are exported as true percentages (-45 = -45%); ctr stays a fraction (GSC convention)
@@ -1777,6 +1902,119 @@
     document.getElementById('act-print').addEventListener('click', () => window.print());
   }
 
+  // ---- branded report pages (print only) ------------------------------------
+  function wavesSvg(tint) {
+    const W = 840, H = 520;
+    const id = 'wg-' + tint;
+    const c1 = tint === 'violet' ? '#3b2f9e' : '#122a6e';
+    const c2 = tint === 'violet' ? '#7c6cf0' : '#3d63d8';
+    let paths = '';
+    for (let i = 0; i < 9; i++) {
+      const y = 120 + i * 42;
+      const amp = 64 + (i % 3) * 20;
+      const d = `M-60 ${y + 70} C ${W * 0.22} ${y - amp}, ${W * 0.42} ${y + amp * 1.35}, ${W * 0.64} ${y + 6} S ${W * 0.92} ${y - amp * 0.8}, ${W + 60} ${y + 40}`;
+      paths += `<path d="${d}" fill="none" stroke="url(#${id})" stroke-width="${30 - i * 2}" stroke-linecap="round" opacity="${(0.22 + i * 0.07).toFixed(2)}"/>`;
+      paths += `<path d="${d}" transform="translate(0,-${6 + i})" fill="none" stroke="rgba(185,205,255,.38)" stroke-width="1.4" opacity="${(0.25 + i * 0.05).toFixed(2)}"/>`;
+    }
+    return `<svg class="waves" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0.35">
+        <stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${c2}"/><stop offset="1" stop-color="${c1}"/>
+      </linearGradient></defs>${paths}</svg>`;
+  }
+  function rpBrandRow() {
+    const row = el('div', 'rp-brand');
+    const lg = el('span', 'lg', 'VIRALISTIC');
+    lg.appendChild(el('small', null, '/  Digital Agency'));
+    row.appendChild(lg);
+    row.appendChild(el('span', 'tag', 'SEO / AIO'));
+    return row;
+  }
+  function buildReportPages() {
+    const client = () => state.site === 'all' ? 'All projects' : state.site;
+    const dates = visibleDates();
+    const year = dates[dates.length - 1].slice(0, 4);
+    const period = shortDate(dates[0]) + ' – ' + shortDate(dates[dates.length - 1]) + ' ' + year;
+
+    const front = document.getElementById('report-front');
+    front.textContent = '';
+    front.appendChild(rpBrandRow());
+    const fb = el('div', 'rp-body');
+    const title = el('h1', 'rp-title');
+    title.appendChild(document.createTextNode('Performance'));
+    title.appendChild(document.createElement('br'));
+    title.appendChild(document.createTextNode('Raport'));
+    fb.appendChild(title);
+    fb.appendChild(el('div', 'rp-client', client()));
+    fb.appendChild(el('div', 'rp-meta', period + ' · prepared by Viralistic · ' + DATA.generatedAt));
+    front.appendChild(fb);
+    front.insertAdjacentHTML('beforeend', wavesSvg('blue'));
+
+    const pri = document.getElementById('report-priorities');
+    pri.textContent = '';
+    const ph = el('div', 'cardhead');
+    const pht = el('div', 'headtxt');
+    pht.appendChild(el('h2', null, 'Priorities for the coming period'));
+    pht.appendChild(el('div', 'desc', 'The three moves with the biggest expected impact, based on the latest scan (' + shortDate(DATA.latestDate) + ').'));
+    ph.appendChild(pht);
+    pri.appendChild(ph);
+    const ol = el('ol', 'pri-list');
+    const moves = topMoves();
+    moves.forEach((m, i) => {
+      const li = el('li');
+      li.appendChild(el('span', 'pn', String(i + 1) + '.'));
+      const box = el('div');
+      box.appendChild(el('div', 'pt', m.title[0] + shortPath(m.page) + m.title[1]));
+      box.appendChild(el('div', 'ps', m.sub + ' · ' + m.page));
+      li.appendChild(box);
+      ol.appendChild(li);
+    });
+    if (!moves.length) {
+      const li = el('li');
+      li.appendChild(el('span', 'pn', '·'));
+      li.appendChild(el('div', 'pt', 'All stable — we keep monitoring daily and act on the first new signal.'));
+      ol.appendChild(li);
+    }
+    pri.appendChild(ol);
+  }
+  function buildReportStatics() {
+    const gl = document.getElementById('report-glossary');
+    gl.textContent = '';
+    const gh = el('div', 'cardhead');
+    const ght = el('div', 'headtxt');
+    ght.appendChild(el('h2', null, 'What the terms in this report mean'));
+    gh.appendChild(ght);
+    gl.appendChild(gh);
+    const dl = el('dl', 'gloss');
+    const defs = [
+      ['Clicks', TERMS.clicks],
+      ['Impressions', TERMS.impressions],
+      ['CTR (click-through rate)', TERMS.ctr],
+      ['Position', TERMS.position],
+      ['Striking distance', 'A page ranking between position 8 and 20 — close enough to page 1 that a focused push pays off quickly.'],
+      ['Flag', 'A signal our daily tracker raises when a page needs attention or is suddenly performing.'],
+      ['Severity', 'How urgent a flag is, from low to critical.'],
+      ['Click surge / New & performing', 'Pages that are rapidly gaining clicks, or new pages that are already earning traffic.'],
+    ];
+    for (const [term, def] of defs) {
+      const box = el('div');
+      box.appendChild(el('dt', null, term));
+      box.appendChild(el('dd', null, def));
+      dl.appendChild(box);
+    }
+    gl.appendChild(dl);
+
+    const cl = document.getElementById('report-closing');
+    cl.textContent = '';
+    cl.appendChild(rpBrandRow());
+    const cb = el('div', 'rp-body');
+    const t = el('h1', 'rp-title', 'Any Questions?');
+    t.appendChild(el('span', 'ghost', 'Get in touch.'));
+    cb.appendChild(t);
+    cb.appendChild(el('div', 'rp-contact', 'viralistic.nl  ·  info@viralistic.nl'));
+    cl.appendChild(cb);
+    cl.insertAdjacentHTML('beforeend', wavesSvg('violet'));
+  }
+
   // ---- footer -----------------------------------------------------------
   function buildChrome() {
     const foot = document.getElementById('footer');
@@ -1793,8 +2031,11 @@
     document.querySelectorAll('.tooltip').forEach(t => { t.style.display = 'none'; });
     const focusKey = document.activeElement && document.activeElement.dataset
       ? document.activeElement.dataset.key : null;
+    document.body.classList.toggle('client-scoped', state.site !== 'all');
     applyView();
     buildFilters();
+    buildClients();
+    buildReportPages();
     buildKpis();
     buildHome();
     buildTraffic();
@@ -1814,6 +2055,7 @@
   buildSidebar();
   buildModal();
   buildChrome();
+  buildReportStatics();
   wireExports();
   render();
   // programmatic access for automation (scripts, n8n, tests)
