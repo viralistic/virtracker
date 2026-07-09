@@ -108,3 +108,39 @@ python3 scripts/refresh_data.py ~/Downloads/snapshots.csv
 
 Either way the script re-aggregates everything (including per-page traffic)
 and re-embeds it into `index.html`. Commit and push to publish.
+
+## Enriching with Google Search Console (real traffic + search queries)
+
+By default, traffic is derived from the pages the tracker flags each day (so
+coverage grows over time). Connect **Google Search Console** to replace that
+with the *real, complete* clicks / impressions / CTR / average position per
+site — and to add the **actual search queries** people use to find each site.
+
+One-time setup:
+
+1. Enable the **Search Console API** in the service account's Google Cloud
+   project (the same service account you use for the sheet is fine).
+2. In **Search Console → Settings → Users and permissions**, add the service
+   account's `...@...iam.gserviceaccount.com` email as a user (Restricted is
+   enough) on **every property** you want in the dashboard. One service account
+   can be granted all properties, or use one per client.
+
+Then, after `refresh_data.py`, run:
+
+```sh
+python3 scripts/enrich_gsc.py --key path/to/sa.json
+```
+
+It auto-discovers which properties the account can read and matches them to the
+dashboard's sites by hostname (trying `sc-domain:` and `https://` forms), then
+embeds a `gsc` block. Once present, a **Search queries** section appears in the
+sidebar, the traffic charts/summary switch to real Search Console totals, and
+the queries flow into the AI brief, exports and the client PDF.
+
+Useful flags: `--days 90`, `--queries 25`, `--pages 25`,
+`--map silverdrive.nl=sc-domain:silverdrive.nl` (force a mapping),
+`--sites a.nl,b.nl`, `--dry-run` (show the matches, write nothing).
+
+`refresh_data.py` preserves the `gsc` block, so refreshing the sheet won't wipe
+it — just re-run `enrich_gsc.py` when you want fresh Search Console numbers.
+Both scripts only need `openssl` (no pip installs); keep key files out of git.

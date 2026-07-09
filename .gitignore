@@ -5,3 +5,7 @@ __pycache__/
 *service-account*.json
 *-key.json
 key.json
+sa.json
+*sa-key*.json
+*.private.json
+secrets/

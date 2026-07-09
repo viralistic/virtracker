@@ -419,8 +419,10 @@
     /* a client report never shows other clients: hide the cross-site comparison when scoped */
     body.client-scoped #card-sites { display: none !important; }
     .report-only { display: block !important; }
+    .report-only.report-empty { display: none !important; } /* no GSC data → skip the queries page */
     /* the report shows both metrics via #report-performance; drop the toggle chart */
     #card-traffic { display: none !important; }
+    #report-queries { break-before: page; break-inside: avoid; }
     /* @page margin is 0 so the dark bleeds to the paper edge; content gets its own inset */
     #kpis, #report-priorities, #report-performance, .view, #report-glossary { padding-left: 12mm; padding-right: 12mm; }
     #kpis { margin-top: 12mm; }
@@ -484,6 +486,8 @@
 
       <div class="card report-only" id="report-performance"></div>
 
+      <div class="card report-only" id="report-queries"></div>
+
       <!-- HOME -->
       <section class="view" id="view-home" aria-label="Home">
         <div class="hero" id="hero"></div>
@@ -529,6 +533,34 @@
             </div>
           </div>
           <div id="table-pages"></div>
+        </div>
+      </section>
+
+      <!-- SEARCH QUERIES (Search Console) -->
+      <section class="view" id="view-queries" aria-label="Search queries">
+        <div class="card" id="card-queries">
+          <div class="cardhead">
+            <div class="headtxt">
+              <h2>Top search queries</h2>
+              <div class="desc" id="desc-queries"></div>
+            </div>
+            <div class="cardtools">
+              <button class="btn" data-copy="queries" title="Copy this table as Markdown"><span class="ic"></span>Copy</button>
+            </div>
+          </div>
+          <div id="table-queries"></div>
+        </div>
+        <div class="card" id="card-gsc-pages">
+          <div class="cardhead">
+            <div class="headtxt">
+              <h2>Top pages · Search Console</h2>
+              <div class="desc" id="desc-gsc-pages"></div>
+            </div>
+            <div class="cardtools">
+              <button class="btn" data-copy="gscPages" title="Copy this table as Markdown"><span class="ic"></span>Copy</button>
+            </div>
+          </div>
+          <div id="table-gsc-pages"></div>
         </div>
       </section>
 
@@ -648,6 +680,9 @@
     document.getElementById('kpis').textContent = 'No data embedded yet — run scripts/refresh_data.py first.';
     return;
   }
+  // Optional Google Search Console enrichment (scripts/enrich_gsc.py): real
+  // clicks/impressions/CTR/position + top queries & pages per site.
+  const GSC = DATA.gsc && DATA.gsc.sites && Object.keys(DATA.gsc.sites).length ? DATA.gsc : null;
 
   const FORM_URL = 'https://n8n.viralistic.nl/form/1e840dd4-d53e-4bc5-a81c-98027521ea9a';
 
@@ -697,6 +732,7 @@
     pointer: '<path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/>',
     eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   };
   function icon(name, size = 16) {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -793,18 +829,75 @@
     if (!PAGE_DAYS_BY_PAGE.has(pi)) PAGE_DAYS_BY_PAGE.set(pi, new Map());
     PAGE_DAYS_BY_PAGE.get(pi).set(di, [c, im, pos]);
   }
-  function trafficSeries() {
-    const dates = visibleDates();
-    const offset = DATA.dates.length - dates.length;
-    const clicks = new Array(dates.length).fill(0);
-    const imprs = new Array(dates.length).fill(0);
-    for (const [di, pi, c, im] of DATA.pageDays) {
-      if (di < offset) continue;
-      if (state.site !== 'all' && PAGE_SITE[pi] !== state.site) continue;
-      clicks[di - offset] += c;
-      imprs[di - offset] += im;
+  // ---- Search Console (GSC) scope + aggregation ---------------------------
+  let _gscAllCache = null;
+  const wavgFinish = (e, key) => ({
+    [key]: e[key], clicks: e.clicks, impressions: e.impressions,
+    ctr: e.impressions ? e.clicks / e.impressions : 0,
+    position: e.impressions ? e.posw / e.impressions : 0,
+  });
+  // The GSC data for the current site scope. For 'all', aggregate across every
+  // site: sum clicks/impressions, impression-weight position, recompute CTR.
+  function gscForSite() {
+    if (!GSC) return null;
+    if (state.site !== 'all') return GSC.sites[state.site] || null;
+    if (_gscAllCache) return _gscAllCache;
+    const byDate = new Map(), qMap = new Map(), pMap = new Map();
+    const roll = (map, keyName, key, row) => {
+      const e = map.get(key) || { [keyName]: key, clicks: 0, impressions: 0, posw: 0 };
+      e.clicks += row.clicks; e.impressions += row.impressions; e.posw += row.position * row.impressions;
+      map.set(key, e);
+    };
+    for (const site of Object.keys(GSC.sites)) {
+      const g = GSC.sites[site];
+      for (const d of g.daily) roll(byDate, 'date', d.date, d);
+      for (const q of g.queries) roll(qMap, 'query', q.query, q);
+      for (const p of g.pages) roll(pMap, 'page', p.page, p);
     }
-    return { dates, clicks, imprs };
+    const daily = [...byDate.values()].map(e => ({
+      date: e.date, clicks: e.clicks, impressions: e.impressions,
+      ctr: e.impressions ? e.clicks / e.impressions : 0,
+      position: e.impressions ? e.posw / e.impressions : 0,
+    })).sort((a, b) => a.date < b.date ? -1 : 1);
+    const topBy = (map, keyName, limit) => [...map.values()]
+      .map(e => wavgFinish(e, keyName))
+      .sort((a, b) => b.clicks - a.clicks).slice(0, limit);
+    _gscAllCache = { daily, queries: topBy(qMap, 'query', 25), pages: topBy(pMap, 'page', 25) };
+    return _gscAllCache;
+  }
+  const hasGsc = () => !!(gscForSite() && gscForSite().daily.length);
+  // The service account may only be granted some properties, so GSC can cover a
+  // subset of tracked sites. Copy for the 'all' scope must not overstate that.
+  const gscCoverage = () => ({ connected: GSC ? Object.keys(GSC.sites).length : 0, total: DATA.sites.length });
+  const gscAllProjectsLabel = () => {
+    const { connected, total } = gscCoverage();
+    return connected >= total ? 'all ' + total + ' projects' : connected + ' of ' + total + ' projects with Search Console access';
+  };
+
+  // Full-period daily clicks/impressions for the current scope. Uses real GSC
+  // data when available, otherwise the flag-based approximation over DATA.dates.
+  function dailySeries() {
+    const g = gscForSite();
+    if (g && g.daily.length) {
+      return { source: 'gsc',
+        dates: g.daily.map(d => d.date),
+        clicks: g.daily.map(d => d.clicks),
+        imprs: g.daily.map(d => d.impressions) };
+    }
+    const n = DATA.dates.length;
+    const clicks = new Array(n).fill(0), imprs = new Array(n).fill(0);
+    for (const [di, pi, c, im] of DATA.pageDays) {
+      if (state.site !== 'all' && PAGE_SITE[pi] !== state.site) continue;
+      clicks[di] += c; imprs[di] += im;
+    }
+    return { source: 'flags', dates: DATA.dates.slice(), clicks, imprs };
+  }
+  // period-filtered view of dailySeries (drives the traffic chart + KPIs)
+  function trafficSeries() {
+    const s = dailySeries();
+    const dates = state.range === 'all' ? s.dates : s.dates.slice(-state.range);
+    const off = s.dates.length - dates.length;
+    return { dates, clicks: s.clicks.slice(off), imprs: s.imprs.slice(off), source: s.source };
   }
   function topPages() {
     const lastIdx = DATA.dates.length - 1;
@@ -826,15 +919,12 @@
 
   // Full-period per-day clicks/impressions (site-scoped) + day/week/all-time roll-ups.
   function perfSummary() {
-    const n = DATA.dates.length;
-    const clicks = new Array(n).fill(0), imprs = new Array(n).fill(0);
-    for (const [di, pi, c, im] of DATA.pageDays) {
-      if (state.site !== 'all' && PAGE_SITE[pi] !== state.site) continue;
-      clicks[di] += c; imprs[di] += im;
-    }
-    const sum = (a, s, e) => a.slice(Math.max(0, s), e).reduce((x, y) => x + y, 0);
+    const s = dailySeries();
+    const n = s.dates.length;
+    const clicks = s.clicks, imprs = s.imprs;
+    const sum = (a, st, e) => a.slice(Math.max(0, st), e).reduce((x, y) => x + y, 0);
     return {
-      n, dates: DATA.dates, clicks, imprs,
+      source: s.source, n, dates: s.dates, clicks, imprs, latest: s.dates[n - 1],
       day: { c: clicks[n - 1], i: imprs[n - 1],
              pc: n > 1 ? clicks[n - 2] : null, pi: n > 1 ? imprs[n - 2] : null },
       week: { c: sum(clicks, n - 7, n), i: sum(imprs, n - 7, n),
@@ -852,7 +942,7 @@
     for (let end = s.n; end > 0 && (!maxWeeks || out.length < maxWeeks); end -= 7) {
       const start = Math.max(0, end - 7);
       out.push({
-        start: DATA.dates[start], end: DATA.dates[end - 1], days: end - start,
+        start: s.dates[start], end: s.dates[end - 1], days: end - start,
         clicks: s.clicks.slice(start, end).reduce((a, b) => a + b, 0),
         imprs: s.imprs.slice(start, end).reduce((a, b) => a + b, 0),
       });
@@ -994,6 +1084,8 @@
   const VIEWS = [
     { key: 'home',      label: 'Home',            icon: 'home' },
     { key: 'traffic',   label: 'Traffic',         icon: 'trending' },
+    // Search queries only exist with Search Console enrichment (enrich_gsc.py)
+    ...(GSC ? [{ key: 'queries', label: 'Search queries', icon: 'search' }] : []),
     { key: 'flags',     label: 'Flags',           icon: 'flag' },
     { key: 'opps',      label: 'Opportunities',   icon: 'target', badge: () => oppsAll().length },
     { key: 'attention', label: 'Needs attention', icon: 'alert',  badge: () => attentionAll().length, hot: true },
@@ -1114,7 +1206,7 @@
     mk('filters-period', 'Period', [
       { value: 14, label: '14 days' },
       { value: 30, label: '30 days' },
-      { value: 'all', label: 'All (' + DATA.dates.length + ')' },
+      { value: 'all', label: 'All' },
     ], state.range, v => { state.range = v; });
   }
 
@@ -1365,19 +1457,28 @@
     mk('Impressions', imprs, dImpr);
     return col;
   }
+  // where the traffic numbers come from — real Search Console vs the flag-based
+  // approximation (which only sees pages the tracker flagged, so coverage grows)
+  const trafficSourceNote = () => {
+    if (!hasGsc()) return ' Coverage grows as more pages are tracked, so all-time totals reflect the pages followed so far.';
+    const { connected, total } = gscCoverage();
+    return state.site === 'all' && connected < total
+      ? ' Source: Google Search Console — real totals for the ' + connected + ' connected project' + (connected === 1 ? '' : 's') + ' (' + (total - connected) + ' not connected).'
+      : ' Source: Google Search Console (real totals).';
+  };
   function buildSummary() {
     const grid = document.getElementById('summary-grid');
     grid.textContent = '';
+    const s = perfSummary();
     document.getElementById('desc-summary').textContent =
       'Clicks and impressions at three horizons' +
-      (state.site === 'all' ? ' across all projects' : ' on ' + state.site) +
-      '. Coverage grows as more pages are tracked, so all-time totals reflect the pages followed so far.';
-    const s = perfSummary();
-    grid.appendChild(sumCol('Latest day', shortDate(DATA.latestDate),
+      (state.site === 'all' ? ' across ' + (hasGsc() ? gscAllProjectsLabel() : 'all projects') : ' on ' + state.site) + '.' +
+      trafficSourceNote();
+    grid.appendChild(sumCol('Latest day', shortDate(s.latest),
       s.day.c, s.day.i,
       s.day.pc === null ? null : s.day.c - s.day.pc,
       s.day.pi === null ? null : s.day.i - s.day.pi, 'vs prev day'));
-    grid.appendChild(sumCol('This week', shortDate(DATA.dates[Math.max(0, s.n - 7)]) + ' – ' + shortDate(DATA.latestDate),
+    grid.appendChild(sumCol('This week', shortDate(s.dates[Math.max(0, s.n - 7)]) + ' – ' + shortDate(s.latest),
       s.week.c, s.week.i,
       s.week.hasPrev ? s.week.c - s.week.pc : null,
       s.week.hasPrev ? s.week.i - s.week.pi : null, 'vs prev week'));
@@ -1395,8 +1496,9 @@
     const ht = el('div', 'headtxt');
     ht.appendChild(el('h2', null, 'Clicks & impressions over time'));
     ht.appendChild(el('div', 'desc',
-      'Daily clicks and impressions over the full tracking period (' +
-      shortDate(DATA.dates[0]) + ' – ' + shortDate(DATA.latestDate) + ', ' + s.n + ' days)' +
+      (hasGsc() ? 'Google Search Console clicks and impressions' : 'Daily clicks and impressions') +
+      ' over the full period (' +
+      shortDate(s.dates[0]) + ' – ' + shortDate(s.latest) + ', ' + s.n + ' days)' +
       (state.site === 'all' ? '' : ' on ' + state.site) + '.'));
     head.appendChild(ht);
     card.appendChild(head);
@@ -1447,16 +1549,89 @@
     card.appendChild(wrap);
   }
 
+  // ---- Search Console: queries + pages -------------------------------------
+  // Build a clicks/impressions/CTR/position table from GSC rows. `firstCol`
+  // decides whether the label is a plain query string or a clickable page link.
+  function gscTable(rows, firstHeader, firstCol) {
+    const tbl = el('table');
+    tbl.appendChild(headerRow([firstHeader, { l: 'Clicks', t: TERMS.clicks },
+      { l: 'Impressions', t: TERMS.impressions }, { l: 'CTR', t: TERMS.ctr }, { l: 'Position', t: TERMS.position }]));
+    for (const r of rows) {
+      const tr = el('tr');
+      tr.appendChild(firstCol(r));
+      tr.appendChild(el('td', 'num', fmt(r.clicks)));
+      tr.appendChild(el('td', 'num', fmt(r.impressions)));
+      tr.appendChild(el('td', 'num', r.impressions ? fmtPct(r.ctr) : '—'));
+      const pos = el('td', 'num'); pos.appendChild(el('span', 'posbadge', r.position ? r.position.toFixed(1) : '—'));
+      tr.appendChild(pos);
+      tbl.appendChild(tr);
+    }
+    return tbl;
+  }
+  function queryCell(r) { return el('td', null, r.query); }
+  function gscPageCell(r) {
+    const td = el('td', 'pagecell');
+    const a = el('a', null, pagePath(r.page));
+    a.href = r.page; a.target = '_blank'; a.rel = 'noopener';
+    a.title = 'Open ' + r.page + ' in a new tab';
+    a.appendChild(el('span', 'ext', '↗'));
+    td.appendChild(a);
+    return td;
+  }
+  function buildQueries() {
+    const g = gscForSite();
+    const scopeTxt = state.site === 'all' ? 'across all projects' : 'on ' + state.site;
+    const range = GSC ? ' · ' + shortDate(GSC.range.start) + ' – ' + shortDate(GSC.range.end) : '';
+    const qh = document.getElementById('table-queries');
+    const ph = document.getElementById('table-gsc-pages');
+    document.getElementById('desc-queries').textContent =
+      'What people searched on Google to find you ' + scopeTxt + range + '. From Search Console, ranked by clicks.';
+    document.getElementById('desc-gsc-pages').textContent =
+      'Your most-visited pages from Google Search ' + scopeTxt + range + '.';
+    if (!g) {
+      // buildQueries only runs when some site is enriched, so a null here means
+      // this specific client's property wasn't matched/granted — not "never ran".
+      const why = state.site === 'all'
+        ? 'No Search Console data embedded yet — run scripts/enrich_gsc.py.'
+        : state.site + ' isn’t connected to Search Console yet. Grant the service account access to its property (or check the “skipped” lines from enrich_gsc.py).';
+      emptyNote(qh, why);
+      emptyNote(ph, why);
+      return;
+    }
+    if (!g.queries.length) emptyNote(qh, 'No query data returned for this scope.');
+    else { qh.textContent = ''; qh.appendChild(gscTable(g.queries, 'Search query', queryCell)); }
+    if (!g.pages.length) emptyNote(ph, 'No page data returned for this scope.');
+    else { ph.textContent = ''; ph.appendChild(gscTable(g.pages, 'Page', gscPageCell)); }
+  }
+  function buildReportQueries() {
+    const card = document.getElementById('report-queries');
+    card.textContent = '';
+    const g = gscForSite();
+    if (!g || !g.queries.length) { card.classList.add('report-empty'); return; }
+    card.classList.remove('report-empty');
+    const head = el('div', 'cardhead');
+    const ht = el('div', 'headtxt');
+    ht.appendChild(el('h2', null, 'Top search queries'));
+    ht.appendChild(el('div', 'desc',
+      'What people searched on Google to find ' +
+      (state.site === 'all' ? 'these sites' : state.site) +
+      ' (Search Console, ' + shortDate(GSC.range.start) + ' – ' + shortDate(GSC.range.end) + ').'));
+    head.appendChild(ht);
+    card.appendChild(head);
+    card.appendChild(gscTable(g.queries.slice(0, 15), 'Search query', queryCell));
+  }
+
   function buildTraffic() {
     buildMetricToggle();
     const tr = trafficSeries();
     const vals = state.metric === 'clicks' ? tr.clicks : tr.imprs;
     const other = state.metric === 'clicks' ? tr.imprs : tr.clicks;
-    document.getElementById('desc-traffic').textContent =
-      (state.metric === 'clicks' ? 'Google clicks' : 'Google impressions') +
-      ' per scan day, summed over the pages the tracker flagged that day' +
-      (state.site === 'all' ? '' : ' on ' + state.site) +
-      ' — coverage grows as more pages are tracked.';
+    const metricWord = state.metric === 'clicks' ? 'clicks' : 'impressions';
+    document.getElementById('desc-traffic').textContent = tr.source === 'gsc'
+      ? 'Google Search Console ' + metricWord + ' per day' +
+        (state.site === 'all' ? ', summed across ' + gscAllProjectsLabel() : ' on ' + state.site) + '.'
+      : 'Google ' + metricWord + ' per scan day, summed over the pages the tracker flagged that day' +
+        (state.site === 'all' ? '' : ' on ' + state.site) + ' — coverage grows as more pages are tracked.';
     lineChart('chart-traffic', 'card-traffic', tr.dates, vals, {
       ariaLabel: 'Line chart of daily ' + state.metric + ' on tracked pages',
       wideAxis: true,
@@ -1927,12 +2102,15 @@
     },
     summary() {
       const s = perfSummary();
-      const scope = state.site === 'all' ? 'all ' + DATA.sites.length + ' projects' : state.site;
+      const scope = state.site === 'all'
+        ? (hasGsc() ? gscAllProjectsLabel() : 'all ' + DATA.sites.length + ' projects') : state.site;
       const wd = (a, b) => (a - b >= 0 ? '+' : '') + fmt(a - b);
       return '## Clicks & impressions — day / week / all-time (' + scope + ')\n'
-        + 'Traffic on tracked pages; coverage grows over time, so all-time totals reflect the pages followed so far.\n\n'
+        + (hasGsc()
+            ? 'Real totals from Google Search Console.\n\n'
+            : 'Traffic on tracked pages; coverage grows over time, so all-time totals reflect the pages followed so far.\n\n')
         + mdTable(['Horizon', 'Clicks', 'Impressions'], [
-            ['Latest day (' + DATA.latestDate + ')',
+            ['Latest day (' + s.latest + ')',
               fmt(s.day.c) + (s.day.pc !== null ? ' (' + wd(s.day.c, s.day.pc) + ' vs prev day)' : ''),
               fmt(s.day.i) + (s.day.pi !== null ? ' (' + wd(s.day.i, s.day.pi) + ' vs prev day)' : '')],
             ['This week (last 7 days)',
@@ -1944,11 +2122,13 @@
           ]);
     },
     weekly() {
-      // full tracked history (not the period filter), so weekly totals reconcile with all-time
+      // full history of the driving series (not the period filter), so weekly totals reconcile with all-time
+      const s = perfSummary();
       const weeks = weekBuckets();
-      const scope = 'Scope: ' + (state.site === 'all' ? 'all ' + DATA.sites.length + ' sites' : state.site)
-        + ' · full tracked history (' + DATA.dates[0] + ' → ' + DATA.latestDate + ', ' + DATA.dates.length + ' scan days)';
-      return '## Weekly performance\n' + scope + '\n\n'
+      const who = state.site === 'all'
+        ? (hasGsc() ? gscAllProjectsLabel() : 'all ' + DATA.sites.length + ' sites') : state.site;
+      const span = s.dates[0] + ' → ' + s.latest + ', ' + s.n + (s.source === 'gsc' ? ' days (Search Console)' : ' scan days');
+      return '## Weekly performance\nScope: ' + who + ' · full history (' + span + ')\n\n'
         + mdTable(['Week', 'Clicks', 'Impressions'],
             weeks.map(w => [w.start + ' – ' + w.end + (w.days < 7 ? ' (' + w.days + ' days)' : ''), w.clicks, w.imprs]));
     },
@@ -1970,6 +2150,28 @@
       return '## Flags by site (selected period, always all sites)\n\n'
         + mdTable(['Site', 'Flags'], rows);
     },
+    queries() {
+      const g = gscForSite();
+      const scope = state.site === 'all' ? gscAllProjectsLabel() : state.site;
+      if (!g || !g.queries.length) return '## Top search queries\n_No Search Console data._';
+      return '## Top search queries — ' + scope + ' (Google Search Console, '
+        + GSC.range.start + ' → ' + GSC.range.end + ')\n'
+        + 'What people searched on Google to find you, ranked by clicks. CTR = clicks ÷ impressions; position = average Google rank (lower is better).\n\n'
+        + mdTable(['Search query', 'Clicks', 'Impressions', 'CTR', 'Position'],
+            g.queries.map(r => [r.query, r.clicks, r.impressions,
+              r.impressions ? (r.ctr * 100).toFixed(1) + '%' : 'n/a',
+              r.position ? r.position.toFixed(1) : 'n/a']));
+    },
+    gscPages() {
+      const g = gscForSite();
+      const scope = state.site === 'all' ? gscAllProjectsLabel() : state.site;
+      if (!g || !g.pages.length) return '## Top pages (Search Console)\n_No Search Console data._';
+      return '## Top pages by Google Search traffic — ' + scope + ' (Search Console)\n\n'
+        + mdTable(['Page', 'Clicks', 'Impressions', 'CTR', 'Position'],
+            g.pages.map(r => [r.page, r.clicks, r.impressions,
+              r.impressions ? (r.ctr * 100).toFixed(1) + '%' : 'n/a',
+              r.position ? r.position.toFixed(1) : 'n/a']));
+    },
   };
   function mdMoves() {
     const moves = topMoves();
@@ -1984,8 +2186,9 @@
     const lf = latestFlags();
     const tr = trafficSeries();
     const li = tr.dates.length - 1;
-    return '## Headline numbers — ' + DATA.latestDate + '\n'
-      + '- Clicks on tracked pages (latest scan day): ' + fmt(tr.clicks[li])
+    const clicksLabel = tr.source === 'gsc' ? 'Clicks (Search Console, latest day)' : 'Clicks on tracked pages (latest scan day)';
+    return '## Headline numbers — ' + tr.dates[li] + '\n'
+      + '- ' + clicksLabel + ': ' + fmt(tr.clicks[li])
       + (li > 0 ? ' (' + (tr.clicks[li] - tr.clicks[li - 1] >= 0 ? '+' : '') + fmt(tr.clicks[li] - tr.clicks[li - 1]) + ' vs previous day)' : '') + '\n'
       + '- Impressions: ' + fmt(tr.imprs[li])
       + (li > 0 ? ' (' + (tr.imprs[li] - tr.imprs[li - 1] >= 0 ? '+' : '') + fmt(tr.imprs[li] - tr.imprs[li - 1]) + ' vs previous day)' : '') + '\n'
@@ -2001,18 +2204,26 @@
       + mdMoves() + '\n\n'
       + mdKpis() + '\n\n'
       + MD.summary() + '\n\n'
+      + (hasGsc() ? MD.queries() + '\n\n' : '')
       + MD.pages() + '\n\n'
       + MD.opps() + '\n\n'
       + MD.attention() + '\n\n'
       + MD.wins() + '\n\n'
       + '## Notes for the analyst\n'
-      + '- "Traffic on tracked pages" sums Google Search clicks/impressions over the pages the daily tracker flagged that day, so coverage grows over time; treat long-range trends with that in mind.\n'
+      + (hasGsc()
+          ? '- Clicks/impressions/CTR/position come from Google Search Console (real totals'
+            + (state.site === 'all' && gscCoverage().connected < gscCoverage().total
+                ? ' for the ' + gscCoverage().connected + ' of ' + gscCoverage().total + ' sites connected to Search Console'
+                : ' for the whole site') + ').\n'
+          : '- "Traffic on tracked pages" sums Google Search clicks/impressions over the pages the daily tracker flagged that day, so coverage grows over time; treat long-range trends with that in mind.\n')
       + '- Position is the average Google ranking; lower is better. Striking distance = position 8–20, i.e. almost page 1.\n'
       + '- Please suggest concrete next actions per page (content, internal links, titles/meta, technical), starting with "Needs attention" and the striking-distance list.';
   }
   function fullReport() {
     // the cross-site comparison only belongs in the all-projects overview report
-    return aiBrief() + '\n\n' + MD.weekly() + '\n\n' + MD.traffic() + '\n\n' + MD.trend() + '\n\n'
+    return aiBrief() + '\n\n' + MD.weekly() + '\n\n'
+      + (hasGsc() ? MD.gscPages() + '\n\n' : '')
+      + MD.traffic() + '\n\n' + MD.trend() + '\n\n'
       + MD.types() + (state.site === 'all' ? '\n\n' + MD.sites() : '') + '\n';
   }
   function latestFlagsCsv(rows) {
@@ -2198,11 +2409,13 @@
     buildClients();
     buildReportPages();
     buildReportPerformance();
+    buildReportQueries();
     buildKpis();
     buildHome();
     buildSummary();
     buildTraffic();
     buildPages();
+    if (GSC) buildQueries();
     buildTrend();
     buildTypes();
     buildSites();
